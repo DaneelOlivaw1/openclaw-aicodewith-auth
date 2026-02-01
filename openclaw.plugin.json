@@ -1,0 +1,13 @@
+{
+  "id": "openclaw-aicodewith-auth",
+  "providers": [
+    "aicodewith-gpt",
+    "aicodewith-claude",
+    "aicodewith-gemini"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

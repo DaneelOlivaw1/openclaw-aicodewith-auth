@@ -1,0 +1,36 @@
+{
+  "name": "openclaw-aicodewith-auth",
+  "version": "0.2.3",
+  "type": "module",
+  "description": "AICodewith provider plugin for OpenClaw - Access GPT, Claude, and Gemini models via AICodewith API",
+  "author": "daneel",
+  "license": "MIT",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "aicodewith",
+    "openai",
+    "anthropic",
+    "claude",
+    "gemini",
+    "gpt"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DaneelOlivaw1/openclaw-aicodewith-auth"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.1.0"
+  }
+}
