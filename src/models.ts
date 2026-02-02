@@ -28,7 +28,7 @@ export const CLAUDE_MODELS = [
     reasoning: false,
     input: ["text", "image"] as const,
     cost: DEFAULT_COST,
-    contextWindow: 180000,
+    contextWindow: 160000,
     maxTokens: 64000,
   },
   {
@@ -37,7 +37,7 @@ export const CLAUDE_MODELS = [
     reasoning: false,
     input: ["text", "image"] as const,
     cost: DEFAULT_COST,
-    contextWindow: 180000,
+    contextWindow: 160000,
     maxTokens: 64000,
   },
 ];
