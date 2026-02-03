@@ -79,19 +79,6 @@ const aicodewithPlugin = {
       auth: [authMethod],
     });
   },
-
-  async activate(api: any) {
-    if (!api.runtime?.config) return;
-    try {
-      const config = await api.runtime.config.loadConfig();
-      const gpt = config?.models?.providers?.[PROVIDER_ID_GPT];
-      if (gpt?.api === "openai-completions") {
-        gpt.api = AICODEWITH_GPT_API;
-        await api.runtime.config.writeConfigFile(config);
-        console.log(`[${PLUGIN_ID}] Migrated GPT API type to "${AICODEWITH_GPT_API}"`);
-      }
-    } catch {}
-  },
 };
 
 export default aicodewithPlugin;
