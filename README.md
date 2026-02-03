@@ -46,10 +46,7 @@ You will be prompted to enter your AICodewith API key.
 
 ```bash
 # Use Claude Opus 4.5 (default after auth)
-openclaw agent --message "Hello"
-
-# Use a specific model
-openclaw agent --model aicodewith-gpt/gpt-5.2-codex --message "Hello"
+openclaw agent --agent main --message "Hello"
 
 # List available models
 openclaw models list | grep aicodewith
