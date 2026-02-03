@@ -10,6 +10,7 @@ import {
   AICODEWITH_CLAUDE_BASE_URL,
   AICODEWITH_GEMINI_BASE_URL,
   AICODEWITH_API_KEY_ENV,
+  AICODEWITH_GPT_API,
 } from "./src/constants.js";
 import { GPT_MODELS, CLAUDE_MODELS, GEMINI_MODELS } from "./src/models.js";
 import { createAicodewithAuthMethod } from "./src/auth.js";
@@ -48,7 +49,7 @@ const aicodewithPlugin = {
       envVars: [AICODEWITH_API_KEY_ENV],
       models: {
         baseUrl: AICODEWITH_GPT_BASE_URL,
-        api: "openai-completions",
+        api: AICODEWITH_GPT_API,
         models: GPT_MODELS,
       },
       auth: [authMethod],

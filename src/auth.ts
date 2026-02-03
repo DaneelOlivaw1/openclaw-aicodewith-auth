@@ -2,6 +2,7 @@ import {
   AICODEWITH_GPT_BASE_URL,
   AICODEWITH_CLAUDE_BASE_URL,
   AICODEWITH_GEMINI_BASE_URL,
+  AICODEWITH_GPT_API,
   PROVIDER_ID_GPT,
   PROVIDER_ID_CLAUDE,
   PROVIDER_ID_GEMINI,
@@ -57,7 +58,7 @@ export function createAicodewithAuthMethod() {
               [PROVIDER_ID_GPT]: {
                 baseUrl: AICODEWITH_GPT_BASE_URL,
                 apiKey: trimmedKey,
-                api: "openai-completions",
+                api: AICODEWITH_GPT_API,
                 models: GPT_MODELS,
               },
               [PROVIDER_ID_CLAUDE]: {
