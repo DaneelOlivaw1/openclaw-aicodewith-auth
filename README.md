@@ -36,6 +36,7 @@ You will be prompted to enter your AICodewith API key.
 
 | Provider | Model ID | Description |
 |----------|----------|-------------|
+| GPT | `aicodewith-gpt/gpt-5.3-codex` | GPT-5.3 Codex (400K context) |
 | GPT | `aicodewith-gpt/gpt-5.2-codex` | GPT-5.2 Codex (400K context) |
 | GPT | `aicodewith-gpt/gpt-5.2` | GPT-5.2 (400K context) |
 | Claude | `aicodewith-claude/claude-sonnet-4-5-20250929` | Claude Sonnet 4.5 (200K context) |

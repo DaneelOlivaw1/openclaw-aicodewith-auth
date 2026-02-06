@@ -2,6 +2,15 @@ const DEFAULT_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
 export const GPT_MODELS = [
   {
+    id: "gpt-5.3-codex",
+    name: "GPT-5.3 Codex",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 400000,
+    maxTokens: 128000,
+  },
+  {
     id: "gpt-5.2-codex",
     name: "GPT-5.2 Codex",
     reasoning: false,
