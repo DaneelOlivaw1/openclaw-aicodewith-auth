@@ -40,6 +40,7 @@ You will be prompted to enter your AICodewith API key.
 | GPT | `aicodewith-gpt/gpt-5.2` | GPT-5.2 (400K context) |
 | Claude | `aicodewith-claude/claude-sonnet-4-5-20250929` | Claude Sonnet 4.5 (200K context) |
 | Claude | `aicodewith-claude/claude-opus-4-5-20251101` | Claude Opus 4.5 (200K context) |
+| Claude | `aicodewith-claude/claude-opus-4-6-20260205` | Claude Opus 4.6 (200K context) |
 | Gemini | `aicodewith-gemini/gemini-3-pro` | Gemini 3 Pro (1M context) |
 
 ## Usage
