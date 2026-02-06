@@ -40,6 +40,15 @@ export const CLAUDE_MODELS = [
     contextWindow: 200000,
     maxTokens: 64000,
   },
+  {
+    id: "claude-opus-4-6-20260205",
+    name: "Claude Opus 4.6",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 200000,
+    maxTokens: 64000,
+  },
 ];
 
 export const GEMINI_MODELS = [
