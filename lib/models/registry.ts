@@ -15,6 +15,8 @@ import {
   AICODEWITH_GPT_BASE_URL,
   AICODEWITH_CLAUDE_BASE_URL,
   AICODEWITH_GEMINI_BASE_URL,
+  CODEX_USER_AGENT,
+  CODEX_ORIGINATOR,
 } from "../../src/constants.js";
 
 export type ModelFamily = "gpt" | "claude" | "gemini";
@@ -437,7 +439,7 @@ export const buildProviderConfigs = () => {
   return {
     [PROVIDER_ID_GPT]: {
       baseUrl: AICODEWITH_GPT_BASE_URL,
-      api: "openai-completions" as const,
+      api: "openai-responses" as const,
       models: gptModels,
     },
     [PROVIDER_ID_CLAUDE]: {
