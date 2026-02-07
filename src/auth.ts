@@ -47,27 +47,15 @@ function validateApiKey(value: string): string | undefined {
   return undefined;
 }
 
-function buildAuthResult(apiKey: string, existingConfig: Record<string, unknown>) {
+function buildAuthResult(apiKey: string) {
   const providerConfigs = buildProviderConfigs();
   const defaultModel = getDefaultModel();
   const defaultModelRef = `${PROVIDER_ID_CLAUDE}/${defaultModel.id}`;
 
-  const modelsConfig: Record<string, Record<string, unknown> | null> = {};
+  const modelsConfig: Record<string, Record<string, unknown>> = {};
   for (const providerId of [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI] as const) {
     for (const model of providerConfigs[providerId].models) {
       modelsConfig[`${providerId}/${model.id}`] = {};
-    }
-  }
-
-  // Nullify stale aicodewith entries from existing config so deep merge overwrites them
-  const existingModels = (existingConfig.agents as Record<string, unknown> | undefined)
-    ?.defaults as Record<string, unknown> | undefined;
-  const existingModelKeys = existingModels?.models as Record<string, unknown> | undefined;
-  if (existingModelKeys) {
-    for (const key of Object.keys(existingModelKeys)) {
-      if (key.startsWith("aicodewith-") && !(key in modelsConfig)) {
-        modelsConfig[key] = null;
-      }
     }
   }
 
@@ -146,7 +134,7 @@ export function createAicodewithAuthMethod() {
         });
 
         if (choice === "existing") {
-          return buildAuthResult(existingKey, ctx.config);
+          return buildAuthResult(existingKey);
         }
       }
 
@@ -156,7 +144,7 @@ export function createAicodewithAuthMethod() {
         validate: validateApiKey,
       });
 
-      return buildAuthResult(apiKey.trim(), ctx.config);
+      return buildAuthResult(apiKey.trim());
     },
   };
 }

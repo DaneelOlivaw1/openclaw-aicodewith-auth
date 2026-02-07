@@ -1,4 +1,7 @@
 import { emptyPluginConfigSchema } from "openclaw/plugin-sdk";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import {
   PLUGIN_ID,
   PLUGIN_NAME,
@@ -169,12 +172,51 @@ function migrateConfig(config: Record<string, unknown>): { config: Record<string
   return { config, changed };
 }
 
+function cleanupStaleModelEntries(): void {
+  try {
+    const configPath = join(homedir(), ".openclaw", "openclaw.json");
+    if (!existsSync(configPath)) return;
+
+    const raw = readFileSync(configPath, "utf8");
+    const config = JSON.parse(raw) as Record<string, unknown>;
+
+    const agents = config.agents as Record<string, unknown> | undefined;
+    const defaults = agents?.defaults as Record<string, unknown> | undefined;
+    const modelsConfig = defaults?.models as Record<string, unknown> | undefined;
+    if (!modelsConfig) return;
+
+    const providerConfigs = buildProviderConfigs();
+    const activeKeys = new Set<string>();
+    for (const providerId of [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI] as const) {
+      for (const model of providerConfigs[providerId].models) {
+        activeKeys.add(`${providerId}/${model.id}`);
+      }
+    }
+
+    let changed = false;
+    for (const key of Object.keys(modelsConfig)) {
+      if (key.startsWith("aicodewith-") && !activeKeys.has(key)) {
+        delete modelsConfig[key];
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+    }
+  } catch {
+    // Config cleanup is best-effort; don't break plugin loading
+  }
+}
+
 const aicodewithPlugin = {
   id: PLUGIN_ID,
   name: PLUGIN_NAME,
   description: PLUGIN_DESCRIPTION,
   configSchema: emptyPluginConfigSchema(),
   register(api: PluginApi) {
+    cleanupStaleModelEntries();
+
     api.on("gateway_start", async () => {
       try {
         const config = api.runtime.config.loadConfig();

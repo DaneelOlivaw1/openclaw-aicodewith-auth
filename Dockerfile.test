@@ -258,12 +258,13 @@ else
 fi
 
 # ========================================
-# Test 4: Auth Cleans Up Stale Model Entries (No configured,missing)
+# Test 4: Plugin Load Cleans Up Stale Model Entries (No configured,missing)
 # Scenario: Old user has deprecated model IDs in agents.defaults.models
-# After auth (simulated via deep merge of configPatch), no stale entries should remain
+# On plugin load (register), stale aicodewith entries are deleted from config
+# Then auth configPatch only adds active models via deep merge
 # ========================================
 echo ""
-echo "=== Test 4: Auth Cleans Up Stale Model Entries ==="
+echo "=== Test 4: Plugin Load Cleans Up Stale Model Entries ==="
 
 if [ -z "${AICODEWITH_API_KEY:-}" ]; then
   echo "⚠ AICODEWITH_API_KEY not set, skipping stale cleanup test"
@@ -341,167 +342,71 @@ else
 }
 OLDCONFIG
 
-  echo "Old config written with deprecated model IDs"
+  echo "Old config written with 13 model entries (including deprecated)"
   
-  # Now simulate what happens after auth with new plugin version:
-  # configPatch is deep-merged into existing config.
-  # The plugin should produce a configPatch that nullifies stale keys.
+  # Run any openclaw command to trigger plugin register() → cleanupStaleModelEntries()
+  openclaw models list 2>&1 || true
+  
+  # Verify stale entries were removed from config file
   node - << 'NODE'
 const fs = require("node:fs");
 const configPath = process.env.HOME + "/.openclaw/openclaw.json";
-const oldConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const modelsConfig = config.agents?.defaults?.models || {};
+const keys = Object.keys(modelsConfig).filter(k => k.startsWith("aicodewith-"));
 
-// Simulate mergeConfigPatch (same as OpenClaw's implementation)
-function isPlainRecord(v) {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
-}
-function mergeConfigPatch(base, patch) {
-  if (!isPlainRecord(base) || !isPlainRecord(patch)) return patch;
-  const next = { ...base };
-  for (const [key, value] of Object.entries(patch)) {
-    const existing = next[key];
-    if (isPlainRecord(existing) && isPlainRecord(value)) {
-      next[key] = mergeConfigPatch(existing, value);
-    } else {
-      next[key] = value;
-    }
-  }
-  return next;
-}
+const staleKeys = keys.filter(k => {
+  const [providerId, modelId] = k.split("/");
+  const provider = config.models?.providers?.[providerId];
+  if (!provider?.models) return true;
+  return !provider.models.some(m => m.id === modelId);
+});
 
-// Load the plugin's buildAuthResult to get the actual configPatch
-// We import the registry directly to build what the plugin would produce
-const PROVIDER_ID_GPT = "aicodewith-gpt";
-const PROVIDER_ID_CLAUDE = "aicodewith-claude";
-const PROVIDER_ID_GEMINI = "aicodewith-gemini";
-
-// Read the plugin's actual provider configs and model registry
-const registryPath = "/plugin/lib/models/registry.ts";
-const registrySource = fs.readFileSync(registryPath, "utf8");
-
-// Extract active model IDs per family from registry source
-// (simplified: we know the current active models from the plugin)
-const activeModels = {
-  [PROVIDER_ID_GPT]: ["gpt-5.3-codex", "gpt-5.2"],
-  [PROVIDER_ID_CLAUDE]: ["claude-opus-4-6-20260205", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001"],
-  [PROVIDER_ID_GEMINI]: ["gemini-3-pro"],
-};
-
-// Build the modelsConfig that the new plugin version would produce
-const modelsConfig = {};
-for (const [providerId, models] of Object.entries(activeModels)) {
-  for (const modelId of models) {
-    modelsConfig[providerId + "/" + modelId] = {};
-  }
-}
-
-// Find stale keys in existing config and set them to null
-const existingModels = oldConfig.agents?.defaults?.models || {};
-for (const key of Object.keys(existingModels)) {
-  if (key.startsWith("aicodewith-") && !(key in modelsConfig)) {
-    modelsConfig[key] = null;
-  }
-}
-
-// Build configPatch (same structure as auth.ts buildAuthResult)
-const configPatch = {
-  auth: {
-    order: {
-      [PROVIDER_ID_GPT]: ["aicodewith:default"],
-      [PROVIDER_ID_CLAUDE]: ["aicodewith:default"],
-      [PROVIDER_ID_GEMINI]: ["aicodewith:default"],
-    },
-  },
-  models: {
-    providers: {
-      [PROVIDER_ID_GPT]: {
-        baseUrl: "https://api.aicodewith.com/chatgpt/v1",
-        api: "openai-responses",
-        models: activeModels[PROVIDER_ID_GPT].map(id => ({
-          id, name: id, reasoning: false, input: ["text","image"],
-          cost: {input:0,output:0,cacheRead:0,cacheWrite:0},
-          contextWindow: 400000, maxTokens: 128000
-        })),
-        apiKey: process.env.AICODEWITH_API_KEY || "PLACEHOLDER_KEY",
-      },
-      [PROVIDER_ID_CLAUDE]: {
-        baseUrl: "https://api.aicodewith.com",
-        api: "anthropic-messages",
-        models: activeModels[PROVIDER_ID_CLAUDE].map(id => ({
-          id, name: id, reasoning: false, input: ["text","image"],
-          cost: {input:0,output:0,cacheRead:0,cacheWrite:0},
-          contextWindow: 200000, maxTokens: 64000
-        })),
-        apiKey: process.env.AICODEWITH_API_KEY || "PLACEHOLDER_KEY",
-      },
-      [PROVIDER_ID_GEMINI]: {
-        baseUrl: "https://api.aicodewith.com/gemini/v1beta",
-        api: "google-generative-ai",
-        models: activeModels[PROVIDER_ID_GEMINI].map(id => ({
-          id, name: id, reasoning: false, input: ["text","image"],
-          cost: {input:0,output:0,cacheRead:0,cacheWrite:0},
-          contextWindow: 1000000, maxTokens: 65536
-        })),
-        apiKey: process.env.AICODEWITH_API_KEY || "PLACEHOLDER_KEY",
-      },
-    },
-  },
-  agents: {
-    defaults: {
-      model: { primary: "aicodewith-claude/claude-opus-4-6-20260205" },
-      models: modelsConfig,
-    },
-  },
-};
-
-// Apply deep merge (same as OpenClaw)
-const merged = mergeConfigPatch(oldConfig, configPatch);
-
-// Write merged config
-fs.writeFileSync(configPath, JSON.stringify(merged, null, 2));
-console.log("Merged config written");
-
-// Verify: check agents.defaults.models for stale entries
-const finalModels = merged.agents?.defaults?.models || {};
-const providerModels = merged.models?.providers || {};
-
-// Collect all active model IDs from providers
-const activeSet = new Set();
-for (const [pid, pconf] of Object.entries(providerModels)) {
-  for (const m of (pconf.models || [])) {
-    activeSet.add(pid + "/" + m.id);
-  }
-}
-
-let staleFound = false;
-for (const [key, value] of Object.entries(finalModels)) {
-  if (!key.startsWith("aicodewith-")) continue;
-  if (value === null) {
-    console.log("  " + key + " → null (will be ignored by OpenClaw)");
-    continue;
-  }
-  if (!activeSet.has(key)) {
-    console.log("✗ STALE: " + key + " is in agents.defaults.models but not in any provider");
-    staleFound = true;
-  }
-}
-
-if (!staleFound) {
-  console.log("✓ No stale model entries (all deprecated keys nullified or removed)");
+if (staleKeys.length > 0) {
+  console.log("✗ Stale entries still in config after plugin load:");
+  staleKeys.forEach(k => console.log("  " + k));
+  process.exit(1);
+} else {
+  console.log("✓ All stale aicodewith entries removed from agents.defaults.models");
+  console.log("  Remaining keys: " + keys.join(", "));
 }
 NODE
   if [ $? -ne 0 ]; then FAILED=1; fi
   
-  # Now run openclaw models list and check for configured,missing
+  # Also verify openclaw models list has no configured,missing
   MODELS_OUTPUT=$(openclaw models list 2>&1 || true)
   
   if echo "$MODELS_OUTPUT" | grep -q "configured,missing"; then
-    echo "✗ Found configured,missing entries after auth:"
+    echo "✗ Found configured,missing entries:"
     echo "$MODELS_OUTPUT" | grep "configured,missing"
     FAILED=1
   else
     echo "✓ No configured,missing entries in models list"
   fi
+  
+  # Restore clean config for subsequent tests
+  rm -rf "$HOME/.openclaw"
+  mkdir -p "$HOME/.openclaw"
+  openclaw plugins install file:/plugin 2>&1 || true
+  cat > "$HOME/.openclaw/openclaw.json" << CONFIG
+{
+  "plugins": { "entries": { "openclaw-aicodewith-auth": { "enabled": true } } },
+  "auth": { "order": { "aicodewith-claude": ["aicodewith:default"] } },
+  "models": {
+    "providers": {
+      "aicodewith-claude": {
+        "baseUrl": "https://api.aicodewith.com",
+        "api": "anthropic-messages",
+        "apiKey": "${AICODEWITH_API_KEY}",
+        "models": [
+          { "id": "claude-opus-4-6-20260205", "name": "Claude Opus 4.6", "reasoning": false, "input": ["text","image"], "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 200000, "maxTokens": 64000 }
+        ]
+      }
+    }
+  },
+  "agents": { "defaults": { "model": { "primary": "aicodewith-claude/claude-opus-4-6-20260205" } } }
+}
+CONFIG
 fi
 
 # ========================================
