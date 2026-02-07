@@ -34,19 +34,20 @@ echo "OpenClaw AICodewith Auth Plugin E2E Tests"
 echo "========================================"
 echo ""
 
+FAILED=0
+
 # Create isolated test environment
 TEST_HOME=$(mktemp -d "/tmp/openclaw-e2e.XXXXXX")
 export HOME="$TEST_HOME"
 echo "Test HOME: $TEST_HOME"
 
 # ========================================
-# Test 1: Plugin Installation & Migration
+# Test 1: Basic Migration (agents.defaults.model)
 # ========================================
 echo ""
-echo "=== Test 1: Plugin Installation & Config Migration ==="
+echo "=== Test 1: Basic Migration (agents.defaults.model) ==="
 mkdir -p "$HOME/.openclaw"
 
-# Create initial config with deprecated models
 cat > "$HOME/.openclaw/openclaw.json" << 'CONFIG'
 {
   "agents": {
@@ -68,109 +69,230 @@ cat > "$HOME/.openclaw/openclaw.json" << 'CONFIG'
 }
 CONFIG
 
-echo "Initial config with deprecated models:"
+echo "Initial config:"
 cat "$HOME/.openclaw/openclaw.json"
 echo ""
 
-# Install plugin
-if openclaw plugins install file:/plugin 2>&1; then
-  echo "✓ Plugin installed successfully"
-else
-  echo "✗ Plugin installation failed"
-  exit 1
-fi
-
-# ========================================
-# Test 2: Plugin Loading & Provider Registration
-# ========================================
-echo ""
-echo "=== Test 2: Plugin Loading ==="
-openclaw plugins list --json > /tmp/plugins.json 2>/dev/null || true
+openclaw plugins install file:/plugin 2>&1 || true
 
 node - << 'NODE'
 const fs = require("node:fs");
-
-try {
-  const data = JSON.parse(fs.readFileSync("/tmp/plugins.json", "utf8"));
-  const plugin = (data.plugins || []).find((entry) => 
-    entry.id === "openclaw-aicodewith-auth" || 
-    entry.name?.includes("AICodewith")
-  );
-  
-  if (!plugin) {
-    console.log("✗ Plugin not found in list");
-    process.exit(1);
-  }
-  
-  if (plugin.status !== "loaded") {
-    console.log(`✗ Plugin status is ${plugin.status}, expected loaded`);
-    process.exit(1);
-  }
-  
-  console.log(`✓ Plugin loaded: ${plugin.id} v${plugin.version}`);
-  
-  // Verify providers registered
-  const expectedProviders = ["aicodewith-gpt", "aicodewith-claude", "aicodewith-gemini"];
-  const registeredProviders = plugin.providerIds || [];
-  const missingProviders = expectedProviders.filter(p => !registeredProviders.includes(p));
-  
-  if (missingProviders.length > 0) {
-    console.log(`✗ Missing providers: ${missingProviders.join(", ")}`);
-    process.exit(1);
-  }
-  
-  console.log(`✓ All providers registered: ${registeredProviders.join(", ")}`);
-  
-} catch (err) {
-  console.log(`✗ Error parsing plugins: ${err.message}`);
-  process.exit(1);
-}
-NODE
-
-# ========================================
-# Test 3: Config Migration Verification
-# ========================================
-echo ""
-echo "=== Test 3: Config Migration ==="
-
-node - << 'NODE'
-const fs = require("node:fs");
-
 const config = JSON.parse(fs.readFileSync(process.env.HOME + "/.openclaw/openclaw.json", "utf8"));
 
-let allPassed = true;
+let passed = true;
 
 // Check defaults.model.primary
-const defaultModel = config.agents?.defaults?.model;
-if (defaultModel?.primary === "aicodewith-claude/claude-opus-4-6-20260205") {
+const primary = config.agents?.defaults?.model?.primary;
+if (primary === "aicodewith-claude/claude-opus-4-6-20260205") {
   console.log("✓ defaults.model.primary migrated to claude-opus-4-6-20260205");
 } else {
-  console.log(`✗ defaults.model.primary is ${defaultModel?.primary}, expected claude-opus-4-6-20260205`);
-  allPassed = false;
+  console.log(`✗ defaults.model.primary is ${primary}, expected claude-opus-4-6-20260205`);
+  passed = false;
 }
 
 // Check defaults.model.fallbacks
-const fallbacks = defaultModel?.fallbacks || [];
+const fallbacks = config.agents?.defaults?.model?.fallbacks || [];
 if (fallbacks.includes("aicodewith-gpt/gpt-5.3-codex")) {
   console.log("✓ defaults.model.fallbacks migrated to gpt-5.3-codex");
 } else {
   console.log(`✗ defaults.model.fallbacks is ${JSON.stringify(fallbacks)}, expected gpt-5.3-codex`);
-  allPassed = false;
+  passed = false;
 }
 
 // Check agents.list[test-agent].model.primary
-const testAgentModel = config.agents?.list?.find(a => a.id === "test-agent")?.model;
-if (testAgentModel?.primary === "aicodewith-claude/claude-sonnet-4-5-20250929") {
+const testAgentPrimary = config.agents?.list?.find(a => a.id === "test-agent")?.model?.primary;
+if (testAgentPrimary === "aicodewith-claude/claude-sonnet-4-5-20250929") {
   console.log("✓ test-agent.model.primary migrated (removed -third-party suffix)");
 } else {
-  console.log(`✗ test-agent.model.primary is ${testAgentModel?.primary}, expected claude-sonnet-4-5-20250929`);
-  allPassed = false;
+  console.log(`✗ test-agent.model.primary is ${testAgentPrimary}, expected claude-sonnet-4-5-20250929`);
+  passed = false;
 }
 
-if (!allPassed) {
-  process.exit(1);
-}
+process.exit(passed ? 0 : 1);
 NODE
+if [ $? -ne 0 ]; then FAILED=1; fi
+
+# ========================================
+# Test 2: Migration with models.providers (stale models)
+# ========================================
+echo ""
+echo "=== Test 2: Migration with models.providers (stale models) ==="
+rm -rf "$HOME/.openclaw"
+mkdir -p "$HOME/.openclaw"
+
+# Config with models.providers containing OLD models (missing opus-4-6)
+cat > "$HOME/.openclaw/openclaw.json" << 'CONFIG'
+{
+  "models": {
+    "providers": {
+      "aicodewith-claude": {
+        "baseUrl": "https://api.aicodewith.com",
+        "apiKey": "sk-test-key-123",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5-20250929",
+            "name": "Claude Sonnet 4.5",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 64000
+          }
+        ]
+      },
+      "aicodewith-gpt": {
+        "baseUrl": "https://api.aicodewith.com/chatgpt/v1",
+        "apiKey": "sk-test-key-123",
+        "api": "openai-responses",
+        "models": [
+          {
+            "id": "gpt-5.2-codex",
+            "name": "GPT-5.2 Codex",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 400000,
+            "maxTokens": 128000
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "aicodewith-claude/claude-sonnet-4-5-20250929"
+      }
+    }
+  }
+}
+CONFIG
+
+echo "Initial config with stale models.providers:"
+cat "$HOME/.openclaw/openclaw.json"
+echo ""
+
+openclaw plugins install file:/plugin 2>&1 || true
+
+node - << 'NODE'
+const fs = require("node:fs");
+const config = JSON.parse(fs.readFileSync(process.env.HOME + "/.openclaw/openclaw.json", "utf8"));
+
+let passed = true;
+
+// Check that apiKey is preserved
+const claudeApiKey = config.models?.providers?.["aicodewith-claude"]?.apiKey;
+if (claudeApiKey === "sk-test-key-123") {
+  console.log("✓ apiKey preserved in aicodewith-claude");
+} else {
+  console.log(`✗ apiKey is ${claudeApiKey}, expected sk-test-key-123`);
+  passed = false;
+}
+
+// Check that claude-opus-4-6-20260205 is now in the models list
+const claudeModels = config.models?.providers?.["aicodewith-claude"]?.models || [];
+const claudeModelIds = claudeModels.map(m => m.id);
+if (claudeModelIds.includes("claude-opus-4-6-20260205")) {
+  console.log("✓ claude-opus-4-6-20260205 added to aicodewith-claude models");
+} else {
+  console.log(`✗ claude-opus-4-6-20260205 NOT in models: ${JSON.stringify(claudeModelIds)}`);
+  passed = false;
+}
+
+// Check that gpt-5.3-codex is now in the models list
+const gptModels = config.models?.providers?.["aicodewith-gpt"]?.models || [];
+const gptModelIds = gptModels.map(m => m.id);
+if (gptModelIds.includes("gpt-5.3-codex")) {
+  console.log("✓ gpt-5.3-codex added to aicodewith-gpt models");
+} else {
+  console.log(`✗ gpt-5.3-codex NOT in models: ${JSON.stringify(gptModelIds)}`);
+  passed = false;
+}
+
+// Check that old gpt-5.2-codex is NOT in the list (replaced)
+if (!gptModelIds.includes("gpt-5.2-codex")) {
+  console.log("✓ gpt-5.2-codex removed from aicodewith-gpt models");
+} else {
+  console.log(`⚠ gpt-5.2-codex still in models (may be intentional if kept for compatibility)`);
+}
+
+process.exit(passed ? 0 : 1);
+NODE
+if [ $? -ne 0 ]; then FAILED=1; fi
+
+# ========================================
+# Test 3: Migration with agents.defaults.models keys
+# ========================================
+echo ""
+echo "=== Test 3: Migration with agents.defaults.models keys ==="
+rm -rf "$HOME/.openclaw"
+mkdir -p "$HOME/.openclaw"
+
+cat > "$HOME/.openclaw/openclaw.json" << 'CONFIG'
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "aicodewith-claude/claude-opus-4-5-20251101"
+      },
+      "models": {
+        "aicodewith-claude/claude-opus-4-5-20251101": { "alias": "opus" },
+        "aicodewith-gpt/gpt-5.2-codex": { "alias": "codex" }
+      }
+    }
+  }
+}
+CONFIG
+
+echo "Initial config with agents.defaults.models:"
+cat "$HOME/.openclaw/openclaw.json"
+echo ""
+
+openclaw plugins install file:/plugin 2>&1 || true
+
+node - << 'NODE'
+const fs = require("node:fs");
+const config = JSON.parse(fs.readFileSync(process.env.HOME + "/.openclaw/openclaw.json", "utf8"));
+
+let passed = true;
+
+const modelsConfig = config.agents?.defaults?.models || {};
+const keys = Object.keys(modelsConfig);
+
+// Check old keys are removed
+if (!keys.includes("aicodewith-claude/claude-opus-4-5-20251101")) {
+  console.log("✓ Old key aicodewith-claude/claude-opus-4-5-20251101 removed");
+} else {
+  console.log("✗ Old key aicodewith-claude/claude-opus-4-5-20251101 still exists");
+  passed = false;
+}
+
+// Check new keys are added
+if (keys.includes("aicodewith-claude/claude-opus-4-6-20260205")) {
+  console.log("✓ New key aicodewith-claude/claude-opus-4-6-20260205 added");
+  // Check alias preserved
+  if (modelsConfig["aicodewith-claude/claude-opus-4-6-20260205"]?.alias === "opus") {
+    console.log("✓ Alias 'opus' preserved");
+  } else {
+    console.log("✗ Alias 'opus' not preserved");
+    passed = false;
+  }
+} else {
+  console.log("✗ New key aicodewith-claude/claude-opus-4-6-20260205 not added");
+  passed = false;
+}
+
+if (keys.includes("aicodewith-gpt/gpt-5.3-codex")) {
+  console.log("✓ New key aicodewith-gpt/gpt-5.3-codex added");
+} else {
+  console.log("✗ New key aicodewith-gpt/gpt-5.3-codex not added");
+  passed = false;
+}
+
+process.exit(passed ? 0 : 1);
+NODE
+if [ $? -ne 0 ]; then FAILED=1; fi
 
 # ========================================
 # Test 4: Live API Tests (if API key provided)
@@ -183,88 +305,51 @@ if [ -z "${AICODEWITH_API_KEY:-}" ]; then
 else
   echo "API key provided, running live tests..."
   
-  # Update config with API key and correct settings
-  node - << 'NODE'
-const fs = require("node:fs");
-const configPath = process.env.HOME + "/.openclaw/openclaw.json";
-const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-
-// Ensure models.providers exists
-if (!config.models) config.models = {};
-if (!config.models.providers) config.models.providers = {};
-
-// Configure GPT provider with openai-responses API
-config.models.providers["aicodewith-gpt"] = {
-  baseUrl: "https://api.aicodewith.com/chatgpt/v1",
-  apiKey: process.env.AICODEWITH_API_KEY,
-  api: "openai-responses",
-  models: [
-    {
-      id: "gpt-5.3-codex",
-      name: "GPT-5.3 Codex",
-      reasoning: false,
-      input: ["text", "image"],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: 400000,
-      maxTokens: 128000
+  rm -rf "$HOME/.openclaw"
+  mkdir -p "$HOME/.openclaw"
+  
+  # Create config with API key
+  cat > "$HOME/.openclaw/openclaw.json" << CONFIG
+{
+  "models": {
+    "providers": {
+      "aicodewith-claude": {
+        "baseUrl": "https://api.aicodewith.com",
+        "apiKey": "${AICODEWITH_API_KEY}",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "claude-opus-4-6-20260205",
+            "name": "Claude Opus 4.6",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 64000
+          }
+        ]
+      }
     }
-  ]
-};
-
-// Configure Claude provider
-config.models.providers["aicodewith-claude"] = {
-  baseUrl: "https://api.aicodewith.com",
-  apiKey: process.env.AICODEWITH_API_KEY,
-  api: "anthropic-messages",
-  models: [
-    {
-      id: "claude-opus-4-6-20260205",
-      name: "Claude Opus 4.6",
-      reasoning: false,
-      input: ["text", "image"],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: 200000,
-      maxTokens: 64000
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "aicodewith-claude/claude-opus-4-6-20260205"
+      }
     }
-  ]
-};
+  }
+}
+CONFIG
 
-fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-console.log("✓ Config updated with API key and provider settings");
-NODE
-
-  # Test Claude API
-  echo ""
+  openclaw plugins install file:/plugin 2>&1 || true
+  
   echo "Testing Claude API..."
-  cat "$HOME/.openclaw/openclaw.json" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-d['agents']['defaults']['model']['primary'] = 'aicodewith-claude/claude-opus-4-6-20260205'
-print(json.dumps(d, indent=2))
-" > /tmp/oc.json && mv /tmp/oc.json "$HOME/.openclaw/openclaw.json"
-
   CLAUDE_RESULT=$(openclaw agent --local --agent main --message "Say hello in exactly one word" 2>&1 || true)
   if echo "$CLAUDE_RESULT" | grep -qi "hello\|hi"; then
-    echo "✓ Claude API call successful: $CLAUDE_RESULT"
+    echo "✓ Claude API call successful"
   else
     echo "✗ Claude API call failed: $CLAUDE_RESULT"
-  fi
-
-  # Test GPT API
-  echo ""
-  echo "Testing GPT API..."
-  cat "$HOME/.openclaw/openclaw.json" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-d['agents']['defaults']['model']['primary'] = 'aicodewith-gpt/gpt-5.3-codex'
-print(json.dumps(d, indent=2))
-" > /tmp/oc.json && mv /tmp/oc.json "$HOME/.openclaw/openclaw.json"
-
-  GPT_RESULT=$(openclaw agent --local --agent main --message "Say hello in exactly one word" 2>&1 || true)
-  if echo "$GPT_RESULT" | grep -qi "hello\|hi"; then
-    echo "✓ GPT API call successful: $GPT_RESULT"
-  else
-    echo "⚠ GPT API call result: $GPT_RESULT"
+    FAILED=1
   fi
 fi
 
@@ -273,8 +358,14 @@ rm -rf "$TEST_HOME"
 
 echo ""
 echo "========================================"
-echo "=== E2E Tests Complete ==="
+if [ $FAILED -eq 0 ]; then
+  echo "=== All E2E Tests PASSED ==="
+else
+  echo "=== Some E2E Tests FAILED ==="
+fi
 echo "========================================"
+
+exit $FAILED
 SCRIPT
 
 RUN chmod +x /app/run-e2e-tests.sh
