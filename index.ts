@@ -11,7 +11,7 @@ import {
   AICODEWITH_GEMINI_BASE_URL,
   AICODEWITH_API_KEY_ENV,
 } from "./src/constants.js";
-import { GPT_MODELS, CLAUDE_MODELS, GEMINI_MODELS } from "./src/models.js";
+import { buildProviderConfigs } from "./lib/models/index.js";
 import { createAicodewithAuthMethod } from "./src/auth.js";
 
 const aicodewithPlugin = {
@@ -41,16 +41,13 @@ const aicodewithPlugin = {
     }) => void;
   }) {
     const authMethod = createAicodewithAuthMethod();
+    const providerConfigs = buildProviderConfigs();
 
     api.registerProvider({
       id: PROVIDER_ID_GPT,
       label: "AICodewith GPT",
       envVars: [AICODEWITH_API_KEY_ENV],
-      models: {
-        baseUrl: AICODEWITH_GPT_BASE_URL,
-        api: "openai-completions",
-        models: GPT_MODELS,
-      },
+      models: providerConfigs[PROVIDER_ID_GPT],
       auth: [authMethod],
     });
 
@@ -58,11 +55,7 @@ const aicodewithPlugin = {
       id: PROVIDER_ID_CLAUDE,
       label: "AICodewith Claude",
       envVars: [AICODEWITH_API_KEY_ENV],
-      models: {
-        baseUrl: AICODEWITH_CLAUDE_BASE_URL,
-        api: "anthropic-messages",
-        models: CLAUDE_MODELS,
-      },
+      models: providerConfigs[PROVIDER_ID_CLAUDE],
       auth: [authMethod],
     });
 
@@ -70,11 +63,7 @@ const aicodewithPlugin = {
       id: PROVIDER_ID_GEMINI,
       label: "AICodewith Gemini",
       envVars: [AICODEWITH_API_KEY_ENV],
-      models: {
-        baseUrl: AICODEWITH_GEMINI_BASE_URL,
-        api: "google-generative-ai",
-        models: GEMINI_MODELS,
-      },
+      models: providerConfigs[PROVIDER_ID_GEMINI],
       auth: [authMethod],
     });
   },
