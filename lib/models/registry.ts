@@ -1,0 +1,227 @@
+/**
+ * @file registry.ts
+ * @description Central model definitions - single source of truth for OpenClaw plugin
+ * 
+ * HOW TO ADD A NEW MODEL:
+ * 1. Add entry to MODELS array below
+ * 2. Run `bun run build` to verify
+ * 3. Done!
+ */
+
+import {
+  PROVIDER_ID_GPT,
+  PROVIDER_ID_CLAUDE,
+  PROVIDER_ID_GEMINI,
+  AICODEWITH_GPT_BASE_URL,
+  AICODEWITH_CLAUDE_BASE_URL,
+  AICODEWITH_GEMINI_BASE_URL,
+} from "../../src/constants.js";
+
+export type ModelFamily = "gpt" | "claude" | "gemini";
+
+/**
+ * OpenClaw SDK Model Interface (preserved from index.ts)
+ */
+export interface OpenClawModel {
+  id: string;
+  name: string;
+  reasoning: boolean;
+  input: readonly ("text" | "image")[];
+  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  contextWindow: number;
+  maxTokens: number;
+}
+
+/**
+ * Extended Model Definition with Registry Metadata
+ */
+export interface ModelDefinition {
+  // OpenClaw SDK fields (preserved)
+  id: string;
+  name: string;
+  reasoning: boolean;
+  input: readonly ("text" | "image")[];
+  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  contextWindow: number;
+  maxTokens: number;
+
+  // Registry metadata (new)
+  family: ModelFamily;
+  displayName: string;
+  version: string;
+  limit: {
+    context: number;
+    output: number;
+  };
+  modalities: {
+    input: ("text" | "image")[];
+    output: ("text")[];
+  };
+  deprecated?: boolean;
+  replacedBy?: string;
+  isDefault?: boolean;
+}
+
+const DEFAULT_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+/**
+ * ============================================
+ * SINGLE SOURCE OF TRUTH - ALL MODELS DEFINED HERE
+ * ============================================
+ */
+export const MODELS: ModelDefinition[] = [
+  // GPT Models
+  {
+    id: "gpt-5.2-codex",
+    name: "GPT-5.2 Codex",
+    family: "gpt",
+    displayName: "GPT-5.2 Codex",
+    version: "5.2",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 400000,
+    maxTokens: 128000,
+    limit: { context: 400000, output: 128000 },
+    modalities: { input: ["text", "image"], output: ["text"] },
+  },
+  {
+    id: "gpt-5.2",
+    name: "GPT-5.2",
+    family: "gpt",
+    displayName: "GPT-5.2",
+    version: "5.2",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 400000,
+    maxTokens: 128000,
+    limit: { context: 400000, output: 128000 },
+    modalities: { input: ["text", "image"], output: ["text"] },
+  },
+
+  // Claude Models
+  {
+    id: "claude-sonnet-4-5-20250929",
+    name: "Claude Sonnet 4.5",
+    family: "claude",
+    displayName: "Claude Sonnet 4.5",
+    version: "4.5",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 180000,
+    maxTokens: 64000,
+    limit: { context: 180000, output: 64000 },
+    modalities: { input: ["text", "image"], output: ["text"] },
+  },
+  {
+    id: "claude-opus-4-5-20251101",
+    name: "Claude Opus 4.5",
+    family: "claude",
+    displayName: "Claude Opus 4.5",
+    version: "4.5",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 180000,
+    maxTokens: 64000,
+    limit: { context: 180000, output: 64000 },
+    modalities: { input: ["text", "image"], output: ["text"] },
+    isDefault: true,
+  },
+
+  // Gemini Models
+  {
+    id: "gemini-3-pro",
+    name: "Gemini 3 Pro",
+    family: "gemini",
+    displayName: "Gemini 3 Pro",
+    version: "3",
+    reasoning: false,
+    input: ["text", "image"] as const,
+    cost: DEFAULT_COST,
+    contextWindow: 1048576,
+    maxTokens: 65536,
+    limit: { context: 1048576, output: 65536 },
+    modalities: { input: ["text", "image"], output: ["text"] },
+  },
+];
+
+/**
+ * Provider IDs
+ */
+export const PROVIDER_IDS = {
+  GPT: PROVIDER_ID_GPT,
+  CLAUDE: PROVIDER_ID_CLAUDE,
+  GEMINI: PROVIDER_ID_GEMINI,
+} as const;
+
+/**
+ * ============================================
+ * HELPER FUNCTIONS
+ * ============================================
+ */
+
+/**
+ * Get all active (non-deprecated) models
+ */
+export const getActiveModels = (): ModelDefinition[] => {
+  return MODELS.filter((m) => !m.deprecated);
+};
+
+/**
+ * Get model by ID
+ */
+export const getModelById = (id: string): ModelDefinition | undefined => {
+  return MODELS.find((m) => m.id === id);
+};
+
+/**
+ * Get models by family
+ */
+export const getModelsByFamily = (family: ModelFamily): ModelDefinition[] => {
+  return MODELS.filter((m) => m.family === family && !m.deprecated);
+};
+
+/**
+ * Transform ModelDefinition to OpenClaw SDK format
+ */
+export const toOpenClawModel = (model: ModelDefinition): OpenClawModel => {
+  return {
+    id: model.id,
+    name: model.name,
+    reasoning: model.reasoning,
+    input: model.input,
+    cost: model.cost,
+    contextWindow: model.contextWindow,
+    maxTokens: model.maxTokens,
+  };
+};
+
+/**
+ * Build provider configurations for all 3 providers
+ */
+export const buildProviderConfigs = () => {
+  const gptModels = getModelsByFamily("gpt").map(toOpenClawModel);
+  const claudeModels = getModelsByFamily("claude").map(toOpenClawModel);
+  const geminiModels = getModelsByFamily("gemini").map(toOpenClawModel);
+
+  return {
+    [PROVIDER_ID_GPT]: {
+      baseUrl: AICODEWITH_GPT_BASE_URL,
+      api: "openai-completions" as const,
+      models: gptModels,
+    },
+    [PROVIDER_ID_CLAUDE]: {
+      baseUrl: AICODEWITH_CLAUDE_BASE_URL,
+      api: "anthropic-messages" as const,
+      models: claudeModels,
+    },
+    [PROVIDER_ID_GEMINI]: {
+      baseUrl: AICODEWITH_GEMINI_BASE_URL,
+      api: "google-generative-ai" as const,
+      models: geminiModels,
+    },
+  };
+};
