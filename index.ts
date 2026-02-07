@@ -126,20 +126,25 @@ function migrateConfigModels(): void {
   if (models) {
     const providers = models.providers as Record<string, unknown> | undefined;
     if (providers) {
-      const ourProviders = [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI];
+      const providerConfigs = buildProviderConfigs();
+      const ourProviders = [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI] as const;
+      
       for (const providerId of ourProviders) {
-        if (providers[providerId]) {
-          console.log(`[${PLUGIN_ID}] Removing stale provider config: ${providerId}`);
-          delete providers[providerId];
+        const existingProvider = providers[providerId] as Record<string, unknown> | undefined;
+        if (existingProvider) {
+          const existingApiKey = existingProvider.apiKey;
+          const newConfig = providerConfigs[providerId];
+          
+          console.log(`[${PLUGIN_ID}] Updating provider config: ${providerId}`);
+          providers[providerId] = {
+            baseUrl: newConfig.baseUrl,
+            api: newConfig.api,
+            models: newConfig.models,
+            ...(existingApiKey ? { apiKey: existingApiKey } : {}),
+          };
           changed = true;
         }
       }
-      if (Object.keys(providers).length === 0) {
-        delete models.providers;
-      }
-    }
-    if (Object.keys(models).length === 0) {
-      delete config.models;
     }
   }
 

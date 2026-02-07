@@ -143,6 +143,42 @@ describe("Config Migration", () => {
     expect(config.models.providers["other-provider"]).toBeDefined();
   });
 
+  it("should update provider configs with latest models while preserving apiKey", () => {
+    const config = {
+      models: {
+        providers: {
+          "aicodewith-claude": {
+            baseUrl: "https://api.aicodewith.com",
+            apiKey: "sk-test-key",
+            api: "anthropic-messages",
+            models: [{ id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" }],
+          },
+        } as Record<string, Record<string, unknown>>,
+      },
+    };
+
+    const newModels = [
+      { id: "claude-opus-4-6-20260205", name: "Claude Opus 4.6" },
+      { id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" },
+      { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
+    ];
+
+    const existingProvider = config.models.providers["aicodewith-claude"];
+    const existingApiKey = existingProvider.apiKey;
+    
+    config.models.providers["aicodewith-claude"] = {
+      baseUrl: "https://api.aicodewith.com",
+      api: "anthropic-messages",
+      models: newModels,
+      ...(existingApiKey ? { apiKey: existingApiKey } : {}),
+    };
+
+    expect(config.models.providers["aicodewith-claude"].apiKey).toBe("sk-test-key");
+    expect(config.models.providers["aicodewith-claude"].models).toHaveLength(3);
+    const modelIds = (config.models.providers["aicodewith-claude"].models as Array<{id: string}>).map(m => m.id);
+    expect(modelIds).toContain("claude-opus-4-6-20260205");
+  });
+
   it("should migrate model keys in agents.defaults.models", () => {
     const migrations = buildModelMigrations();
     const config = {
