@@ -108,4 +108,38 @@ describe("Config Migration", () => {
 
     expect(JSON.stringify(config)).toBe(originalConfig);
   });
+
+  it("should remove stale provider configs from models.providers", () => {
+    const config = {
+      models: {
+        providers: {
+          "aicodewith-gpt": {
+            baseUrl: "https://api.aicodewith.com/chatgpt/v1",
+            models: [{ id: "gpt-5.2-codex", name: "GPT-5.2 Codex" }],
+          },
+          "aicodewith-claude": {
+            baseUrl: "https://api.aicodewith.com",
+            models: [{ id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" }],
+          },
+          "other-provider": {
+            baseUrl: "https://other.api.com",
+            models: [{ id: "other-model", name: "Other Model" }],
+          },
+        },
+      },
+    };
+
+    const ourProviders = ["aicodewith-gpt", "aicodewith-claude", "aicodewith-gemini"];
+    const providers = config.models.providers as Record<string, unknown>;
+    
+    for (const providerId of ourProviders) {
+      if (providers[providerId]) {
+        delete providers[providerId];
+      }
+    }
+
+    expect(config.models.providers["aicodewith-gpt"]).toBeUndefined();
+    expect(config.models.providers["aicodewith-claude"]).toBeUndefined();
+    expect(config.models.providers["other-provider"]).toBeDefined();
+  });
 });

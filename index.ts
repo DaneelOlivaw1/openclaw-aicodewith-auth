@@ -90,6 +90,27 @@ function migrateConfigModels(): void {
     }
   }
 
+  const models = config.models as Record<string, unknown> | undefined;
+  if (models) {
+    const providers = models.providers as Record<string, unknown> | undefined;
+    if (providers) {
+      const ourProviders = [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI];
+      for (const providerId of ourProviders) {
+        if (providers[providerId]) {
+          console.log(`[${PLUGIN_ID}] Removing stale provider config: ${providerId}`);
+          delete providers[providerId];
+          changed = true;
+        }
+      }
+      if (Object.keys(providers).length === 0) {
+        delete models.providers;
+      }
+    }
+    if (Object.keys(models).length === 0) {
+      delete config.models;
+    }
+  }
+
   if (changed) {
     try {
       writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");

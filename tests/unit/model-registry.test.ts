@@ -158,6 +158,23 @@ describe("Model Registry", () => {
       expect(claudeConfig.models).toHaveLength(3)
     })
 
+    it("Claude provider includes claude-opus-4-6-20260205", () => {
+      const configs = buildProviderConfigs()
+      const claudeConfig = configs[PROVIDER_IDS.CLAUDE]
+      const modelIds = claudeConfig.models.map(m => m.id)
+      expect(modelIds).toContain("claude-opus-4-6-20260205")
+      expect(modelIds).toContain("claude-sonnet-4-5-20250929")
+      expect(modelIds).toContain("claude-haiku-4-5-20251001")
+    })
+
+    it("GPT provider includes gpt-5.3-codex", () => {
+      const configs = buildProviderConfigs()
+      const gptConfig = configs[PROVIDER_IDS.GPT]
+      const modelIds = gptConfig.models.map(m => m.id)
+      expect(modelIds).toContain("gpt-5.3-codex")
+      expect(modelIds).toContain("gpt-5.2")
+    })
+
     it("Gemini provider has 1 model", () => {
       const configs = buildProviderConfigs()
       const geminiConfig = configs[PROVIDER_IDS.GEMINI]
