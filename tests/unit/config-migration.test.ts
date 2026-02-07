@@ -142,4 +142,37 @@ describe("Config Migration", () => {
     expect(config.models.providers["aicodewith-claude"]).toBeUndefined();
     expect(config.models.providers["other-provider"]).toBeDefined();
   });
+
+  it("should migrate model keys in agents.defaults.models", () => {
+    const migrations = buildModelMigrations();
+    const config = {
+      agents: {
+        defaults: {
+          models: {
+            "aicodewith-claude/claude-opus-4-5-20251101": { alias: "opus" },
+            "aicodewith-gpt/gpt-5.2-codex": { alias: "codex" },
+            "other-provider/other-model": { alias: "other" },
+          } as Record<string, unknown>,
+        },
+      },
+    };
+
+    const modelsConfig = config.agents.defaults.models;
+    const keysToMigrate: Array<[string, string]> = [];
+    for (const key of Object.keys(modelsConfig)) {
+      if (migrations[key]) {
+        keysToMigrate.push([key, migrations[key]]);
+      }
+    }
+    for (const [oldKey, newKey] of keysToMigrate) {
+      modelsConfig[newKey] = modelsConfig[oldKey];
+      delete modelsConfig[oldKey];
+    }
+
+    expect(modelsConfig["aicodewith-claude/claude-opus-4-5-20251101"]).toBeUndefined();
+    expect(modelsConfig["aicodewith-claude/claude-opus-4-6-20260205"]).toEqual({ alias: "opus" });
+    expect(modelsConfig["aicodewith-gpt/gpt-5.2-codex"]).toBeUndefined();
+    expect(modelsConfig["aicodewith-gpt/gpt-5.3-codex"]).toEqual({ alias: "codex" });
+    expect(modelsConfig["other-provider/other-model"]).toEqual({ alias: "other" });
+  });
 });

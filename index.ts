@@ -72,6 +72,22 @@ function migrateConfigModels(): void {
       if (defaults.imageModel && migrateModelField(defaults.imageModel)) {
         changed = true;
       }
+
+      const modelsConfig = defaults.models as Record<string, unknown> | undefined;
+      if (modelsConfig) {
+        const keysToMigrate: Array<[string, string]> = [];
+        for (const key of Object.keys(modelsConfig)) {
+          if (migrations[key]) {
+            keysToMigrate.push([key, migrations[key]]);
+          }
+        }
+        for (const [oldKey, newKey] of keysToMigrate) {
+          console.log(`[${PLUGIN_ID}] Migrating models config key: ${oldKey} -> ${newKey}`);
+          modelsConfig[newKey] = modelsConfig[oldKey];
+          delete modelsConfig[oldKey];
+          changed = true;
+        }
+      }
     }
 
     const agentList = agents.list;
@@ -84,6 +100,22 @@ function migrateConfigModels(): void {
           }
           if (agent.imageModel && migrateModelField(agent.imageModel)) {
             changed = true;
+          }
+
+          const agentModelsConfig = agent.models as Record<string, unknown> | undefined;
+          if (agentModelsConfig) {
+            const keysToMigrate: Array<[string, string]> = [];
+            for (const key of Object.keys(agentModelsConfig)) {
+              if (migrations[key]) {
+                keysToMigrate.push([key, migrations[key]]);
+              }
+            }
+            for (const [oldKey, newKey] of keysToMigrate) {
+              console.log(`[${PLUGIN_ID}] Migrating agent models config key: ${oldKey} -> ${newKey}`);
+              agentModelsConfig[newKey] = agentModelsConfig[oldKey];
+              delete agentModelsConfig[oldKey];
+              changed = true;
+            }
           }
         }
       }
