@@ -6,13 +6,102 @@ import {
   PROVIDER_ID_GPT,
   PROVIDER_ID_CLAUDE,
   PROVIDER_ID_GEMINI,
-  AICODEWITH_GPT_BASE_URL,
-  AICODEWITH_CLAUDE_BASE_URL,
-  AICODEWITH_GEMINI_BASE_URL,
   AICODEWITH_API_KEY_ENV,
 } from "./src/constants.js";
 import { buildProviderConfigs, buildModelMigrations } from "./lib/models/index.js";
 import { createAicodewithAuthMethod } from "./src/auth.js";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+
+function migrateConfigModels(): void {
+  const migrations = buildModelMigrations();
+  if (Object.keys(migrations).length === 0) {
+    return;
+  }
+
+  const configDir = join(homedir(), ".config", "openclaw");
+  const configPath = join(configDir, "config.json");
+
+  if (!existsSync(configPath)) {
+    return;
+  }
+
+  let config: Record<string, unknown>;
+  try {
+    const content = readFileSync(configPath, "utf-8");
+    config = JSON.parse(content);
+  } catch {
+    return;
+  }
+
+  let changed = false;
+
+  const migrateModelField = (modelConfig: unknown): boolean => {
+    if (!modelConfig || typeof modelConfig !== "object") return false;
+    const model = modelConfig as Record<string, unknown>;
+    let fieldChanged = false;
+
+    if (typeof model.primary === "string" && migrations[model.primary]) {
+      console.log(`[${PLUGIN_ID}] Migrating primary: ${model.primary} -> ${migrations[model.primary]}`);
+      model.primary = migrations[model.primary];
+      fieldChanged = true;
+    }
+
+    if (Array.isArray(model.fallbacks)) {
+      model.fallbacks = model.fallbacks.map((fb: unknown) => {
+        if (typeof fb === "string" && migrations[fb]) {
+          console.log(`[${PLUGIN_ID}] Migrating fallback: ${fb} -> ${migrations[fb]}`);
+          fieldChanged = true;
+          return migrations[fb];
+        }
+        return fb;
+      });
+    }
+
+    return fieldChanged;
+  };
+
+  const agents = config.agents as Record<string, unknown> | undefined;
+  if (agents) {
+    const defaults = agents.defaults as Record<string, unknown> | undefined;
+    if (defaults) {
+      if (defaults.model && migrateModelField(defaults.model)) {
+        changed = true;
+      }
+      if (defaults.imageModel && migrateModelField(defaults.imageModel)) {
+        changed = true;
+      }
+    }
+
+    const agentList = agents.list;
+    if (Array.isArray(agentList)) {
+      for (const agentConfig of agentList) {
+        if (agentConfig && typeof agentConfig === "object") {
+          const agent = agentConfig as Record<string, unknown>;
+          if (agent.model && migrateModelField(agent.model)) {
+            changed = true;
+          }
+          if (agent.imageModel && migrateModelField(agent.imageModel)) {
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    try {
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+      console.log(`[${PLUGIN_ID}] Migrated deprecated model IDs in config`);
+    } catch (error) {
+      console.warn(
+        `[${PLUGIN_ID}] Failed to write migrated config:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+  }
+}
 
 const aicodewithPlugin = {
   id: PLUGIN_ID,
@@ -39,12 +128,16 @@ const aicodewithPlugin = {
       };
       auth: Array<ReturnType<typeof createAicodewithAuthMethod>>;
     }) => void;
-    on: (
-      hookName: string,
-      handler: (event: any, ctx: any) => void | Promise<void>,
-      opts?: { priority?: number }
-    ) => void;
   }) {
+    try {
+      migrateConfigModels();
+    } catch (error) {
+      console.warn(
+        `[${PLUGIN_ID}] Config migration failed:`,
+        error instanceof Error ? error.message : error
+      );
+    }
+
     const authMethod = createAicodewithAuthMethod();
     const providerConfigs = buildProviderConfigs();
 
@@ -70,62 +163,6 @@ const aicodewithPlugin = {
       envVars: [AICODEWITH_API_KEY_ENV],
       models: providerConfigs[PROVIDER_ID_GEMINI],
       auth: [authMethod],
-    });
-
-    api.on("gateway_start", async () => {
-      try {
-        const { readConfigFileSnapshot, writeConfigFile } = await import("openclaw/config");
-        const snapshot = await readConfigFileSnapshot();
-        
-        if (!snapshot?.parsed) {
-          return;
-        }
-
-        const config = snapshot.parsed as Record<string, any>;
-        const migrations = buildModelMigrations();
-        let changed = false;
-
-        if (config.default_model && typeof config.default_model === "string") {
-          const migrated = migrations[config.default_model];
-          if (migrated) {
-            config.default_model = migrated;
-            changed = true;
-          }
-        }
-
-        if (config.agents?.defaults?.model && typeof config.agents.defaults.model === "string") {
-          const migrated = migrations[config.agents.defaults.model];
-          if (migrated) {
-            config.agents.defaults.model = migrated;
-            changed = true;
-          }
-        }
-
-        if (config.agents?.agents && typeof config.agents.agents === "object") {
-          for (const [agentId, agentConfig] of Object.entries(config.agents.agents)) {
-            if (agentConfig && typeof agentConfig === "object") {
-              const agent = agentConfig as Record<string, any>;
-              if (agent.model && typeof agent.model === "string") {
-                const migrated = migrations[agent.model];
-                if (migrated) {
-                  agent.model = migrated;
-                  changed = true;
-                }
-              }
-            }
-          }
-        }
-
-        if (changed) {
-          await writeConfigFile(config);
-          console.log(`[${PLUGIN_ID}] Migrated deprecated model IDs in config`);
-        }
-      } catch (error) {
-        console.warn(
-          `[${PLUGIN_ID}] Failed to migrate config:`,
-          error instanceof Error ? error.message : error
-        );
-      }
     });
   },
 };

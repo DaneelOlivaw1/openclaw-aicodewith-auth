@@ -398,12 +398,29 @@ export const getDeprecatedModels = (): ModelDefinition[] => {
 /**
  * Build model migrations map (oldModelId -> newModelId)
  * Used for migrating users from deprecated models to their replacements
+ * Includes both bare model IDs and provider-prefixed IDs
  */
 export const buildModelMigrations = (): Record<string, string> => {
   const migrations: Record<string, string> = {};
+  
+  const getProviderForFamily = (family: ModelFamily): string => {
+    switch (family) {
+      case "gpt": return PROVIDER_ID_GPT;
+      case "claude": return PROVIDER_ID_CLAUDE;
+      case "gemini": return PROVIDER_ID_GEMINI;
+    }
+  };
+  
   for (const model of MODELS) {
     if (model.deprecated && model.replacedBy) {
       migrations[model.id] = model.replacedBy;
+      
+      const provider = getProviderForFamily(model.family);
+      const replacementModel = MODELS.find(m => m.id === model.replacedBy);
+      if (replacementModel) {
+        const replacementProvider = getProviderForFamily(replacementModel.family);
+        migrations[`${provider}/${model.id}`] = `${replacementProvider}/${model.replacedBy}`;
+      }
     }
   }
   return migrations;

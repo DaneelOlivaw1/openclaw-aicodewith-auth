@@ -5,18 +5,24 @@ describe("Config Migration", () => {
   it("should build migration map from deprecated models", () => {
     const migrations = buildModelMigrations();
 
-    expect(migrations).toEqual({
-      "gpt-5.2-codex": "gpt-5.3-codex",
-      "gpt-5.1-codex": "gpt-5.3-codex",
-      "gpt-5.1-codex-max": "gpt-5.3-codex",
-      "gpt-5.1-codex-mini": "gpt-5.3-codex",
-      "gpt-5.1": "gpt-5.2",
-      "claude-opus-4-5-20251101": "claude-opus-4-6-20260205",
-      "claude-opus-4-6-20260205-third-party": "claude-opus-4-6-20260205",
-      "claude-opus-4-5-20251101-third-party": "claude-opus-4-6-20260205",
-      "claude-sonnet-4-5-20250929-third-party": "claude-sonnet-4-5-20250929",
-      "claude-haiku-4-5-20251001-third-party": "claude-haiku-4-5-20251001",
-    });
+    expect(migrations["gpt-5.2-codex"]).toBe("gpt-5.3-codex");
+    expect(migrations["gpt-5.1-codex"]).toBe("gpt-5.3-codex");
+    expect(migrations["gpt-5.1-codex-max"]).toBe("gpt-5.3-codex");
+    expect(migrations["gpt-5.1-codex-mini"]).toBe("gpt-5.3-codex");
+    expect(migrations["gpt-5.1"]).toBe("gpt-5.2");
+    expect(migrations["claude-opus-4-5-20251101"]).toBe("claude-opus-4-6-20260205");
+    expect(migrations["claude-opus-4-6-20260205-third-party"]).toBe("claude-opus-4-6-20260205");
+    expect(migrations["claude-opus-4-5-20251101-third-party"]).toBe("claude-opus-4-6-20260205");
+    expect(migrations["claude-sonnet-4-5-20250929-third-party"]).toBe("claude-sonnet-4-5-20250929");
+    expect(migrations["claude-haiku-4-5-20251001-third-party"]).toBe("claude-haiku-4-5-20251001");
+  });
+
+  it("should include provider-prefixed migrations", () => {
+    const migrations = buildModelMigrations();
+
+    expect(migrations["aicodewith-gpt/gpt-5.2-codex"]).toBe("aicodewith-gpt/gpt-5.3-codex");
+    expect(migrations["aicodewith-claude/claude-opus-4-5-20251101"]).toBe("aicodewith-claude/claude-opus-4-6-20260205");
+    expect(migrations["aicodewith-claude/claude-sonnet-4-5-20250929-third-party"]).toBe("aicodewith-claude/claude-sonnet-4-5-20250929");
   });
 
   it("should migrate default_model in config", () => {

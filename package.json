@@ -27,6 +27,7 @@
   "files": [
     "index.ts",
     "src",
+    "lib",
     "openclaw.plugin.json",
     "README.md"
   ],

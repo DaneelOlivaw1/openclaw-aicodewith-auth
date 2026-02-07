@@ -206,9 +206,9 @@ describe("Model Registry", () => {
   })
 
   describe("buildModelMigrations", () => {
-    it("returns 10 migration mappings", () => {
+    it("returns 20 migration mappings (10 bare + 10 provider-prefixed)", () => {
       const migrations = buildModelMigrations()
-      expect(Object.keys(migrations)).toHaveLength(10)
+      expect(Object.keys(migrations)).toHaveLength(20)
     })
 
     it("returns Record<string, string> type", () => {
@@ -224,6 +224,12 @@ describe("Model Registry", () => {
       const migrations = buildModelMigrations()
       expect(migrations["gpt-5.2-codex"]).toBe("gpt-5.3-codex")
       expect(migrations["claude-opus-4-5-20251101"]).toBe("claude-opus-4-6-20260205")
+    })
+
+    it("includes provider-prefixed migrations", () => {
+      const migrations = buildModelMigrations()
+      expect(migrations["aicodewith-gpt/gpt-5.2-codex"]).toBe("aicodewith-gpt/gpt-5.3-codex")
+      expect(migrations["aicodewith-claude/claude-opus-4-5-20251101"]).toBe("aicodewith-claude/claude-opus-4-6-20260205")
     })
   })
 
