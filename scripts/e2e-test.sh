@@ -17,9 +17,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$HOME/.config/openclaw"
+mkdir -p "$HOME/.openclaw"
 
-cat > "$HOME/.config/openclaw/config.json" << 'EOF'
+cat > "$HOME/.openclaw/openclaw.json" << 'EOF'
 {
   "agents": {
     "defaults": {
@@ -42,7 +42,7 @@ EOF
 
 echo ""
 echo "=== Step 1: Initial config with deprecated models ==="
-cat "$HOME/.config/openclaw/config.json"
+cat "$HOME/.openclaw/openclaw.json"
 
 echo ""
 echo "=== Step 2: Installing plugin from local directory ==="
@@ -83,12 +83,12 @@ NODE
 echo ""
 echo "=== Step 4: Verify config migration ==="
 echo "Config after plugin load:"
-cat "$HOME/.config/openclaw/config.json"
+cat "$HOME/.openclaw/openclaw.json"
 
 node - << 'NODE'
 const fs = require("node:fs");
 
-const config = JSON.parse(fs.readFileSync(process.env.HOME + "/.config/openclaw/config.json", "utf8"));
+const config = JSON.parse(fs.readFileSync(process.env.HOME + "/.openclaw/openclaw.json", "utf8"));
 
 console.log("\n=== Migration Verification ===");
 

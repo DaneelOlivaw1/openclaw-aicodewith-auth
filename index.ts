@@ -20,8 +20,8 @@ function migrateConfigModels(): void {
     return;
   }
 
-  const configDir = join(homedir(), ".config", "openclaw");
-  const configPath = join(configDir, "config.json");
+  const configDir = join(homedir(), ".openclaw");
+  const configPath = join(configDir, "openclaw.json");
 
   if (!existsSync(configPath)) {
     return;

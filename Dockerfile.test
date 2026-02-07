@@ -1,0 +1,46 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install OpenClaw CLI
+RUN npm install -g openclaw@latest
+
+# Copy plugin source
+COPY . /plugin
+
+# Create test config with deprecated models
+RUN mkdir -p /root/.openclaw && \
+    echo '{ \
+      "agents": { \
+        "defaults": { \
+          "model": { \
+            "primary": "aicodewith-claude/claude-opus-4-5-20251101", \
+            "fallbacks": ["aicodewith-gpt/gpt-5.2-codex"] \
+          } \
+        }, \
+        "list": [ \
+          { \
+            "id": "test-agent", \
+            "model": { \
+              "primary": "aicodewith-claude/claude-sonnet-4-5-20250929-third-party" \
+            } \
+          } \
+        ] \
+      } \
+    }' > /root/.openclaw/openclaw.json
+
+# Install plugin from local source
+RUN openclaw plugins install file:/plugin
+
+# Verify migration
+CMD ["sh", "-c", "echo '=== Config after migration ===' && cat /root/.openclaw/openclaw.json && echo '' && echo '=== Verification ===' && node -e \" \
+  const fs = require('fs'); \
+  const config = JSON.parse(fs.readFileSync('/root/.openclaw/openclaw.json', 'utf8')); \
+  const primary = config.agents?.defaults?.model?.primary; \
+  const fallbacks = config.agents?.defaults?.model?.fallbacks || []; \
+  const testAgent = config.agents?.list?.find(a => a.id === 'test-agent')?.model?.primary; \
+  console.log('Primary:', primary === 'aicodewith-claude/claude-opus-4-6-20260205' ? '✓ PASS' : '✗ FAIL (got ' + primary + ')'); \
+  console.log('Fallbacks:', fallbacks.includes('aicodewith-gpt/gpt-5.3-codex') ? '✓ PASS' : '✗ FAIL (got ' + JSON.stringify(fallbacks) + ')'); \
+  console.log('Test Agent:', testAgent === 'aicodewith-claude/claude-sonnet-4-5-20250929' ? '✓ PASS' : '✗ FAIL (got ' + testAgent + ')'); \
+  process.exit(primary === 'aicodewith-claude/claude-opus-4-6-20260205' && fallbacks.includes('aicodewith-gpt/gpt-5.3-codex') && testAgent === 'aicodewith-claude/claude-sonnet-4-5-20250929' ? 0 : 1); \
+\""]
