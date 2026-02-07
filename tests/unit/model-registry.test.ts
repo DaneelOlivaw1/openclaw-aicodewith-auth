@@ -6,7 +6,10 @@ import {
   getModelById,
   getModelsByFamily,
   getDefaultModel,
+  getDeprecatedModels,
+  buildModelMigrations,
   buildProviderConfigs,
+  toOpenClawModel,
 } from "../../lib/models/registry.js"
 
 describe("Model Registry", () => {
@@ -182,6 +185,73 @@ describe("Model Registry", () => {
       expect(PROVIDER_IDS.GPT).toBeTruthy()
       expect(PROVIDER_IDS.CLAUDE).toBeTruthy()
       expect(PROVIDER_IDS.GEMINI).toBeTruthy()
+    })
+  })
+
+  describe("getDeprecatedModels", () => {
+    it("returns empty array when no deprecated models exist", () => {
+      const deprecated = getDeprecatedModels()
+      expect(deprecated).toHaveLength(0)
+    })
+
+    it("returns only models with deprecated: true", () => {
+      const deprecated = getDeprecatedModels()
+      expect(deprecated.every(m => m.deprecated === true)).toBe(true)
+    })
+  })
+
+  describe("buildModelMigrations", () => {
+    it("returns empty object when no deprecated models exist", () => {
+      const migrations = buildModelMigrations()
+      expect(Object.keys(migrations)).toHaveLength(0)
+    })
+
+    it("returns Record<string, string> type", () => {
+      const migrations = buildModelMigrations()
+      expect(typeof migrations).toBe("object")
+      for (const [key, value] of Object.entries(migrations)) {
+        expect(typeof key).toBe("string")
+        expect(typeof value).toBe("string")
+      }
+    })
+  })
+
+  describe("toOpenClawModel", () => {
+    it("transforms ModelDefinition to OpenClawModel format", () => {
+      const model = getModelById("gpt-5.2-codex")!
+      const openClawModel = toOpenClawModel(model)
+
+      expect(openClawModel.id).toBe(model.id)
+      expect(openClawModel.name).toBe(model.name)
+      expect(openClawModel.reasoning).toBe(model.reasoning)
+      expect(openClawModel.input).toEqual(model.input)
+      expect(openClawModel.cost).toEqual(model.cost)
+      expect(openClawModel.contextWindow).toBe(model.contextWindow)
+      expect(openClawModel.maxTokens).toBe(model.maxTokens)
+    })
+
+    it("excludes registry metadata fields", () => {
+      const model = getModelById("claude-opus-4-5-20251101")!
+      const openClawModel = toOpenClawModel(model)
+
+      expect("family" in openClawModel).toBe(false)
+      expect("displayName" in openClawModel).toBe(false)
+      expect("version" in openClawModel).toBe(false)
+      expect("limit" in openClawModel).toBe(false)
+      expect("modalities" in openClawModel).toBe(false)
+      expect("deprecated" in openClawModel).toBe(false)
+      expect("replacedBy" in openClawModel).toBe(false)
+      expect("isDefault" in openClawModel).toBe(false)
+    })
+
+    it("works for all model families", () => {
+      const gptModel = toOpenClawModel(getModelById("gpt-5.2")!)
+      const claudeModel = toOpenClawModel(getModelById("claude-sonnet-4-5-20250929")!)
+      const geminiModel = toOpenClawModel(getModelById("gemini-3-pro")!)
+
+      expect(gptModel.id).toBe("gpt-5.2")
+      expect(claudeModel.id).toBe("claude-sonnet-4-5-20250929")
+      expect(geminiModel.id).toBe("gemini-3-pro")
     })
   })
 })

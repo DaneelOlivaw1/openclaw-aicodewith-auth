@@ -211,6 +211,27 @@ export const getDefaultModel = (): ModelDefinition => {
 };
 
 /**
+ * Get all deprecated models
+ */
+export const getDeprecatedModels = (): ModelDefinition[] => {
+  return MODELS.filter((m) => m.deprecated);
+};
+
+/**
+ * Build model migrations map (oldModelId -> newModelId)
+ * Used for migrating users from deprecated models to their replacements
+ */
+export const buildModelMigrations = (): Record<string, string> => {
+  const migrations: Record<string, string> = {};
+  for (const model of MODELS) {
+    if (model.deprecated && model.replacedBy) {
+      migrations[model.id] = model.replacedBy;
+    }
+  }
+  return migrations;
+};
+
+/**
  * Build provider configurations for all 3 providers
  */
 export const buildProviderConfigs = () => {
