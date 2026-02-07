@@ -7,7 +7,7 @@ import {
   PROVIDER_ID_GEMINI,
   AUTH_PROFILE_ID,
 } from "./constants.js";
-import { GPT_MODELS, CLAUDE_MODELS, GEMINI_MODELS } from "./models.js";
+import { buildProviderConfigs, getDefaultModel } from "../lib/models/index.js";
 
 function validateApiKey(value: string): string | undefined {
   const trimmed = value.trim();
@@ -38,7 +38,9 @@ export function createAicodewithAuthMethod() {
       });
 
       const trimmedKey = apiKey.trim();
-      const defaultModelRef = `${PROVIDER_ID_CLAUDE}/claude-opus-4-5-20251101`;
+      const providerConfigs = buildProviderConfigs();
+      const defaultModel = getDefaultModel();
+      const defaultModelRef = `${PROVIDER_ID_CLAUDE}/${defaultModel.id}`;
 
       return {
         profiles: [
@@ -55,22 +57,16 @@ export function createAicodewithAuthMethod() {
           models: {
             providers: {
               [PROVIDER_ID_GPT]: {
-                baseUrl: AICODEWITH_GPT_BASE_URL,
+                ...providerConfigs[PROVIDER_ID_GPT],
                 apiKey: trimmedKey,
-                api: "openai-completions",
-                models: GPT_MODELS,
               },
               [PROVIDER_ID_CLAUDE]: {
-                baseUrl: AICODEWITH_CLAUDE_BASE_URL,
+                ...providerConfigs[PROVIDER_ID_CLAUDE],
                 apiKey: trimmedKey,
-                api: "anthropic-messages",
-                models: CLAUDE_MODELS,
               },
               [PROVIDER_ID_GEMINI]: {
-                baseUrl: AICODEWITH_GEMINI_BASE_URL,
+                ...providerConfigs[PROVIDER_ID_GEMINI],
                 apiKey: trimmedKey,
-                api: "google-generative-ai",
-                models: GEMINI_MODELS,
               },
             },
           },
@@ -79,13 +75,13 @@ export function createAicodewithAuthMethod() {
               model: defaultModelRef,
               models: {
                 ...Object.fromEntries(
-                  GPT_MODELS.map((m) => [`${PROVIDER_ID_GPT}/${m.id}`, {}])
+                  providerConfigs[PROVIDER_ID_GPT].models.map((m) => [`${PROVIDER_ID_GPT}/${m.id}`, {}])
                 ),
                 ...Object.fromEntries(
-                  CLAUDE_MODELS.map((m) => [`${PROVIDER_ID_CLAUDE}/${m.id}`, {}])
+                  providerConfigs[PROVIDER_ID_CLAUDE].models.map((m) => [`${PROVIDER_ID_CLAUDE}/${m.id}`, {}])
                 ),
                 ...Object.fromEntries(
-                  GEMINI_MODELS.map((m) => [`${PROVIDER_ID_GEMINI}/${m.id}`, {}])
+                  providerConfigs[PROVIDER_ID_GEMINI].models.map((m) => [`${PROVIDER_ID_GEMINI}/${m.id}`, {}])
                 ),
               },
             },

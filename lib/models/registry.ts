@@ -200,6 +200,17 @@ export const toOpenClawModel = (model: ModelDefinition): OpenClawModel => {
 };
 
 /**
+ * Get default model
+ */
+export const getDefaultModel = (): ModelDefinition => {
+  const defaultModel = MODELS.find((m) => m.isDefault);
+  if (!defaultModel) {
+    throw new Error("No default model found in registry");
+  }
+  return defaultModel;
+};
+
+/**
  * Build provider configurations for all 3 providers
  */
 export const buildProviderConfigs = () => {
