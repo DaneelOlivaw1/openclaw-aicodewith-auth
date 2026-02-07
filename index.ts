@@ -10,29 +10,47 @@ import {
 } from "./src/constants.js";
 import { buildProviderConfigs, buildModelMigrations } from "./lib/models/index.js";
 import { createAicodewithAuthMethod } from "./src/auth.js";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
 
-function migrateConfigModels(): void {
+type PluginRuntime = {
+  config: {
+    loadConfig: () => Record<string, unknown>;
+    writeConfigFile: (config: Record<string, unknown>) => Promise<void>;
+  };
+};
+
+type PluginApi = {
+  id: string;
+  runtime: PluginRuntime;
+  registerProvider: (provider: {
+    id: string;
+    label: string;
+    envVars?: string[];
+    models?: {
+      baseUrl: string;
+      api: string;
+      models: Array<{
+        id: string;
+        name: string;
+        reasoning: boolean;
+        input: readonly string[];
+        cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+        contextWindow: number;
+        maxTokens: number;
+      }>;
+    };
+    auth: Array<ReturnType<typeof createAicodewithAuthMethod>>;
+  }) => void;
+  on: (
+    hookName: string,
+    handler: (event: { port: number }, ctx: { port?: number }) => Promise<void> | void,
+    opts?: { priority?: number }
+  ) => void;
+};
+
+function migrateConfig(config: Record<string, unknown>): { config: Record<string, unknown>; changed: boolean } {
   const migrations = buildModelMigrations();
   if (Object.keys(migrations).length === 0) {
-    return;
-  }
-
-  const configDir = join(homedir(), ".openclaw");
-  const configPath = join(configDir, "openclaw.json");
-
-  if (!existsSync(configPath)) {
-    return;
-  }
-
-  let config: Record<string, unknown>;
-  try {
-    const content = readFileSync(configPath, "utf-8");
-    config = JSON.parse(content);
-  } catch {
-    return;
+    return { config, changed: false };
   }
 
   let changed = false;
@@ -128,13 +146,13 @@ function migrateConfigModels(): void {
     if (providers) {
       const providerConfigs = buildProviderConfigs();
       const ourProviders = [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI] as const;
-      
+
       for (const providerId of ourProviders) {
         const existingProvider = providers[providerId] as Record<string, unknown> | undefined;
         if (existingProvider) {
           const existingApiKey = existingProvider.apiKey;
           const newConfig = providerConfigs[providerId];
-          
+
           console.log(`[${PLUGIN_ID}] Updating provider config: ${providerId}`);
           providers[providerId] = {
             baseUrl: newConfig.baseUrl,
@@ -148,17 +166,7 @@ function migrateConfigModels(): void {
     }
   }
 
-  if (changed) {
-    try {
-      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
-      console.log(`[${PLUGIN_ID}] Migrated deprecated model IDs in config`);
-    } catch (error) {
-      console.warn(
-        `[${PLUGIN_ID}] Failed to write migrated config:`,
-        error instanceof Error ? error.message : error
-      );
-    }
-  }
+  return { config, changed };
 }
 
 const aicodewithPlugin = {
@@ -166,35 +174,22 @@ const aicodewithPlugin = {
   name: PLUGIN_NAME,
   description: PLUGIN_DESCRIPTION,
   configSchema: emptyPluginConfigSchema(),
-  register(api: {
-    registerProvider: (provider: {
-      id: string;
-      label: string;
-      envVars?: string[];
-      models?: {
-        baseUrl: string;
-        api: string;
-        models: Array<{
-          id: string;
-          name: string;
-          reasoning: boolean;
-          input: readonly string[];
-          cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
-          contextWindow: number;
-          maxTokens: number;
-        }>;
-      };
-      auth: Array<ReturnType<typeof createAicodewithAuthMethod>>;
-    }) => void;
-  }) {
-    try {
-      migrateConfigModels();
-    } catch (error) {
-      console.warn(
-        `[${PLUGIN_ID}] Config migration failed:`,
-        error instanceof Error ? error.message : error
-      );
-    }
+  register(api: PluginApi) {
+    api.on("gateway_start", async () => {
+      try {
+        const config = api.runtime.config.loadConfig();
+        const { config: migratedConfig, changed } = migrateConfig(config);
+        if (changed) {
+          await api.runtime.config.writeConfigFile(migratedConfig);
+          console.log(`[${PLUGIN_ID}] Migrated deprecated model IDs in config`);
+        }
+      } catch (error) {
+        console.warn(
+          `[${PLUGIN_ID}] Config migration failed:`,
+          error instanceof Error ? error.message : error
+        );
+      }
+    });
 
     const authMethod = createAicodewithAuthMethod();
     const providerConfigs = buildProviderConfigs();

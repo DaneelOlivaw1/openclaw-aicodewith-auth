@@ -4,7 +4,7 @@ import {
   PROVIDER_ID_GEMINI,
   AUTH_PROFILE_ID,
 } from "./constants.js";
-import { buildProviderConfigs, getDefaultModel } from "../lib/models/index.js";
+import { buildProviderConfigs, getDefaultModel, buildModelMigrations } from "../lib/models/index.js";
 
 function validateApiKey(value: string): string | undefined {
   const trimmed = value.trim();
@@ -38,6 +38,23 @@ export function createAicodewithAuthMethod() {
       const providerConfigs = buildProviderConfigs();
       const defaultModel = getDefaultModel();
       const defaultModelRef = `${PROVIDER_ID_CLAUDE}/${defaultModel.id}`;
+      const migrations = buildModelMigrations();
+
+      // Build models config with all current model IDs
+      const modelsConfig: Record<string, Record<string, unknown>> = {};
+      for (const providerId of [PROVIDER_ID_GPT, PROVIDER_ID_CLAUDE, PROVIDER_ID_GEMINI] as const) {
+        const config = providerConfigs[providerId];
+        for (const model of config.models) {
+          const fullModelId = `${providerId}/${model.id}`;
+          modelsConfig[fullModelId] = {};
+          // Also add migrated model IDs pointing to the same config
+          for (const [oldId, newId] of Object.entries(migrations)) {
+            if (newId === fullModelId) {
+              modelsConfig[oldId] = {};
+            }
+          }
+        }
+      }
 
       return {
         profiles: [
@@ -58,11 +75,34 @@ export function createAicodewithAuthMethod() {
               [PROVIDER_ID_GEMINI]: [AUTH_PROFILE_ID],
             },
           },
+          models: {
+            providers: {
+              [PROVIDER_ID_GPT]: {
+                baseUrl: providerConfigs[PROVIDER_ID_GPT].baseUrl,
+                api: providerConfigs[PROVIDER_ID_GPT].api,
+                models: providerConfigs[PROVIDER_ID_GPT].models,
+                apiKey: trimmedKey,
+              },
+              [PROVIDER_ID_CLAUDE]: {
+                baseUrl: providerConfigs[PROVIDER_ID_CLAUDE].baseUrl,
+                api: providerConfigs[PROVIDER_ID_CLAUDE].api,
+                models: providerConfigs[PROVIDER_ID_CLAUDE].models,
+                apiKey: trimmedKey,
+              },
+              [PROVIDER_ID_GEMINI]: {
+                baseUrl: providerConfigs[PROVIDER_ID_GEMINI].baseUrl,
+                api: providerConfigs[PROVIDER_ID_GEMINI].api,
+                models: providerConfigs[PROVIDER_ID_GEMINI].models,
+                apiKey: trimmedKey,
+              },
+            },
+          },
           agents: {
             defaults: {
               model: {
                 primary: defaultModelRef,
               },
+              models: modelsConfig,
             },
           },
         },
