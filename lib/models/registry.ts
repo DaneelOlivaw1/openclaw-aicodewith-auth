@@ -15,8 +15,6 @@ import {
   AICODEWITH_GPT_BASE_URL,
   AICODEWITH_CLAUDE_BASE_URL,
   AICODEWITH_GEMINI_BASE_URL,
-  CODEX_USER_AGENT,
-  CODEX_ORIGINATOR,
 } from "../../src/constants.js";
 
 export type ModelFamily = "gpt" | "claude" | "gemini";

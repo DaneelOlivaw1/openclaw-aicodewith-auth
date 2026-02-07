@@ -1,7 +1,4 @@
 import {
-  AICODEWITH_GPT_BASE_URL,
-  AICODEWITH_CLAUDE_BASE_URL,
-  AICODEWITH_GEMINI_BASE_URL,
   PROVIDER_ID_GPT,
   PROVIDER_ID_CLAUDE,
   PROVIDER_ID_GEMINI,
@@ -54,35 +51,17 @@ export function createAicodewithAuthMethod() {
           },
         ],
         configPatch: {
-          models: {
-            providers: {
-              [PROVIDER_ID_GPT]: {
-                ...providerConfigs[PROVIDER_ID_GPT],
-                apiKey: trimmedKey,
-              },
-              [PROVIDER_ID_CLAUDE]: {
-                ...providerConfigs[PROVIDER_ID_CLAUDE],
-                apiKey: trimmedKey,
-              },
-              [PROVIDER_ID_GEMINI]: {
-                ...providerConfigs[PROVIDER_ID_GEMINI],
-                apiKey: trimmedKey,
-              },
+          auth: {
+            order: {
+              [PROVIDER_ID_GPT]: [AUTH_PROFILE_ID],
+              [PROVIDER_ID_CLAUDE]: [AUTH_PROFILE_ID],
+              [PROVIDER_ID_GEMINI]: [AUTH_PROFILE_ID],
             },
           },
           agents: {
             defaults: {
-              model: defaultModelRef,
-              models: {
-                ...Object.fromEntries(
-                  providerConfigs[PROVIDER_ID_GPT].models.map((m) => [`${PROVIDER_ID_GPT}/${m.id}`, {}])
-                ),
-                ...Object.fromEntries(
-                  providerConfigs[PROVIDER_ID_CLAUDE].models.map((m) => [`${PROVIDER_ID_CLAUDE}/${m.id}`, {}])
-                ),
-                ...Object.fromEntries(
-                  providerConfigs[PROVIDER_ID_GEMINI].models.map((m) => [`${PROVIDER_ID_GEMINI}/${m.id}`, {}])
-                ),
+              model: {
+                primary: defaultModelRef,
               },
             },
           },
