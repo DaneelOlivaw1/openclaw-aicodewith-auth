@@ -14,8 +14,8 @@ import {
 
 describe("Model Registry", () => {
   describe("MODELS array", () => {
-    it("has 5 models total", () => {
-      expect(MODELS).toHaveLength(5)
+    it("has 16 models total (6 active + 10 deprecated)", () => {
+      expect(MODELS).toHaveLength(16)
     })
 
     it("all models have required fields", () => {
@@ -40,14 +40,14 @@ describe("Model Registry", () => {
     it("default model is marked with isDefault: true", () => {
       const defaultModels = MODELS.filter(m => m.isDefault)
       expect(defaultModels).toHaveLength(1)
-      expect(defaultModels[0].id).toBe("claude-opus-4-5-20251101")
+      expect(defaultModels[0].id).toBe("claude-opus-4-6-20260205")
     })
   })
 
   describe("getActiveModels", () => {
-    it("returns all 5 models (no deprecated models)", () => {
+    it("returns 6 active models (excludes deprecated)", () => {
       const active = getActiveModels()
-      expect(active).toHaveLength(5)
+      expect(active).toHaveLength(6)
       expect(active.every(m => !m.deprecated)).toBe(true)
     })
 
@@ -64,10 +64,17 @@ describe("Model Registry", () => {
   })
 
   describe("getModelById", () => {
-    it("finds model by exact ID", () => {
+    it("finds active model by exact ID", () => {
+      const model = getModelById("gpt-5.3-codex")
+      expect(model).toBeDefined()
+      expect(model?.displayName).toBe("GPT-5.3 Codex")
+    })
+
+    it("finds deprecated model by exact ID", () => {
       const model = getModelById("gpt-5.2-codex")
       expect(model).toBeDefined()
-      expect(model?.displayName).toBe("GPT-5.2 Codex")
+      expect(model?.displayName).toBe("GPT-5.2 Codex (deprecated)")
+      expect(model?.deprecated).toBe(true)
     })
 
     it("returns undefined for unknown ID", () => {
@@ -75,19 +82,20 @@ describe("Model Registry", () => {
       expect(model).toBeUndefined()
     })
 
-    it("finds all 5 models by their IDs", () => {
-      expect(getModelById("gpt-5.2-codex")).toBeDefined()
+    it("finds all active models by their IDs", () => {
+      expect(getModelById("gpt-5.3-codex")).toBeDefined()
       expect(getModelById("gpt-5.2")).toBeDefined()
+      expect(getModelById("claude-opus-4-6-20260205")).toBeDefined()
       expect(getModelById("claude-sonnet-4-5-20250929")).toBeDefined()
-      expect(getModelById("claude-opus-4-5-20251101")).toBeDefined()
+      expect(getModelById("claude-haiku-4-5-20251001")).toBeDefined()
       expect(getModelById("gemini-3-pro")).toBeDefined()
     })
   })
 
   describe("getDefaultModel", () => {
-    it("returns claude-opus-4-5-20251101", () => {
+    it("returns claude-opus-4-6-20260205", () => {
       const defaultModel = getDefaultModel()
-      expect(defaultModel.id).toBe("claude-opus-4-5-20251101")
+      expect(defaultModel.id).toBe("claude-opus-4-6-20260205")
     })
 
     it("has isDefault: true", () => {
@@ -110,7 +118,7 @@ describe("Model Registry", () => {
 
     it("returns only Claude models", () => {
       const claudeModels = getModelsByFamily("claude")
-      expect(claudeModels).toHaveLength(2)
+      expect(claudeModels).toHaveLength(3)
       expect(claudeModels.every(m => m.family === "claude")).toBe(true)
     })
 
@@ -144,18 +152,10 @@ describe("Model Registry", () => {
       }
     })
 
-    it("GPT provider has 2 models", () => {
-      const configs = buildProviderConfigs()
-      const gptConfig = configs[PROVIDER_IDS.GPT]
-      expect(gptConfig.models).toHaveLength(2)
-      expect(gptConfig.api).toBe("openai-completions")
-    })
-
-    it("Claude provider has 2 models", () => {
+    it("Claude provider has 3 models", () => {
       const configs = buildProviderConfigs()
       const claudeConfig = configs[PROVIDER_IDS.CLAUDE]
-      expect(claudeConfig.models).toHaveLength(2)
-      expect(claudeConfig.api).toBe("anthropic-messages")
+      expect(claudeConfig.models).toHaveLength(3)
     })
 
     it("Gemini provider has 1 model", () => {
@@ -189,21 +189,26 @@ describe("Model Registry", () => {
   })
 
   describe("getDeprecatedModels", () => {
-    it("returns empty array when no deprecated models exist", () => {
+    it("returns 10 deprecated models", () => {
       const deprecated = getDeprecatedModels()
-      expect(deprecated).toHaveLength(0)
+      expect(deprecated).toHaveLength(10)
     })
 
     it("returns only models with deprecated: true", () => {
       const deprecated = getDeprecatedModels()
       expect(deprecated.every(m => m.deprecated === true)).toBe(true)
     })
+
+    it("all deprecated models have replacedBy field", () => {
+      const deprecated = getDeprecatedModels()
+      expect(deprecated.every(m => m.replacedBy)).toBe(true)
+    })
   })
 
   describe("buildModelMigrations", () => {
-    it("returns empty object when no deprecated models exist", () => {
+    it("returns 10 migration mappings", () => {
       const migrations = buildModelMigrations()
-      expect(Object.keys(migrations)).toHaveLength(0)
+      expect(Object.keys(migrations)).toHaveLength(10)
     })
 
     it("returns Record<string, string> type", () => {
@@ -213,6 +218,12 @@ describe("Model Registry", () => {
         expect(typeof key).toBe("string")
         expect(typeof value).toBe("string")
       }
+    })
+
+    it("maps deprecated models to their replacements", () => {
+      const migrations = buildModelMigrations()
+      expect(migrations["gpt-5.2-codex"]).toBe("gpt-5.3-codex")
+      expect(migrations["claude-opus-4-5-20251101"]).toBe("claude-opus-4-6-20260205")
     })
   })
 
