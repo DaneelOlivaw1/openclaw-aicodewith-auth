@@ -1,13 +1,3 @@
-/**
- * @file registry.ts
- * @description Central model definitions - single source of truth for OpenClaw plugin
- * 
- * HOW TO ADD A NEW MODEL:
- * 1. Add entry to MODELS array below
- * 2. Run `bun run build` to verify
- * 3. Done!
- */
-
 import {
   PROVIDER_ID_GPT,
   PROVIDER_ID_CLAUDE,
@@ -15,62 +5,12 @@ import {
   AICODEWITH_GPT_BASE_URL,
   AICODEWITH_CLAUDE_BASE_URL,
   AICODEWITH_GEMINI_BASE_URL,
-} from "../../src/constants.js";
-
-export type ModelFamily = "gpt" | "claude" | "gemini";
-
-/**
- * OpenClaw SDK Model Interface (preserved from index.ts)
- */
-export interface OpenClawModel {
-  id: string;
-  name: string;
-  reasoning: boolean;
-  input: readonly ("text" | "image")[];
-  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
-  contextWindow: number;
-  maxTokens: number;
-}
-
-/**
- * Extended Model Definition with Registry Metadata
- */
-export interface ModelDefinition {
-  // OpenClaw SDK fields (preserved)
-  id: string;
-  name: string;
-  reasoning: boolean;
-  input: readonly ("text" | "image")[];
-  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
-  contextWindow: number;
-  maxTokens: number;
-
-  // Registry metadata (new)
-  family: ModelFamily;
-  displayName: string;
-  version: string;
-  limit: {
-    context: number;
-    output: number;
-  };
-  modalities: {
-    input: ("text" | "image")[];
-    output: ("text")[];
-  };
-  deprecated?: boolean;
-  replacedBy?: string;
-  isDefault?: boolean;
-}
+} from "../constants.js";
+import { ModelDefinition, OpenClawModel, ModelFamily } from "../types.js";
 
 const DEFAULT_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
-/**
- * ============================================
- * SINGLE SOURCE OF TRUTH - ALL MODELS DEFINED HERE
- * ============================================
- */
 export const MODELS: ModelDefinition[] = [
-  // GPT Models (Active)
   {
     id: "gpt-5.3-codex",
     name: "GPT-5.3 Codex",
@@ -99,8 +39,6 @@ export const MODELS: ModelDefinition[] = [
     limit: { context: 400000, output: 128000 },
     modalities: { input: ["text", "image"], output: ["text"] },
   },
-
-  // GPT Models (Deprecated)
   {
     id: "gpt-5.2-codex",
     name: "GPT-5.2 Codex (deprecated)",
@@ -181,8 +119,6 @@ export const MODELS: ModelDefinition[] = [
     deprecated: true,
     replacedBy: "gpt-5.2",
   },
-
-  // Claude Models (Active)
   {
     id: "claude-opus-4-6-20260205",
     name: "Claude Opus 4.6",
@@ -226,8 +162,6 @@ export const MODELS: ModelDefinition[] = [
     limit: { context: 200000, output: 8192 },
     modalities: { input: ["text", "image"], output: ["text"] },
   },
-
-  // Claude Models (Deprecated)
   {
     id: "claude-opus-4-5-20251101",
     name: "Claude Opus 4.5 (deprecated)",
@@ -308,8 +242,6 @@ export const MODELS: ModelDefinition[] = [
     deprecated: true,
     replacedBy: "claude-haiku-4-5-20251001",
   },
-
-  // Gemini Models
   {
     id: "gemini-3-pro",
     name: "Gemini 3 Pro",
@@ -326,45 +258,24 @@ export const MODELS: ModelDefinition[] = [
   },
 ];
 
-/**
- * Provider IDs
- */
 export const PROVIDER_IDS = {
   GPT: PROVIDER_ID_GPT,
   CLAUDE: PROVIDER_ID_CLAUDE,
   GEMINI: PROVIDER_ID_GEMINI,
 } as const;
 
-/**
- * ============================================
- * HELPER FUNCTIONS
- * ============================================
- */
-
-/**
- * Get all active (non-deprecated) models
- */
 export const getActiveModels = (): ModelDefinition[] => {
   return MODELS.filter((m) => !m.deprecated);
 };
 
-/**
- * Get model by ID
- */
 export const getModelById = (id: string): ModelDefinition | undefined => {
   return MODELS.find((m) => m.id === id);
 };
 
-/**
- * Get models by family
- */
 export const getModelsByFamily = (family: ModelFamily): ModelDefinition[] => {
   return MODELS.filter((m) => m.family === family && !m.deprecated);
 };
 
-/**
- * Transform ModelDefinition to OpenClaw SDK format
- */
 export const toOpenClawModel = (model: ModelDefinition): OpenClawModel => {
   return {
     id: model.id,
@@ -377,9 +288,6 @@ export const toOpenClawModel = (model: ModelDefinition): OpenClawModel => {
   };
 };
 
-/**
- * Get default model
- */
 export const getDefaultModel = (): ModelDefinition => {
   const defaultModel = MODELS.find((m) => m.isDefault);
   if (!defaultModel) {
@@ -388,18 +296,10 @@ export const getDefaultModel = (): ModelDefinition => {
   return defaultModel;
 };
 
-/**
- * Get all deprecated models
- */
 export const getDeprecatedModels = (): ModelDefinition[] => {
   return MODELS.filter((m) => m.deprecated);
 };
 
-/**
- * Build model migrations map (oldModelId -> newModelId)
- * Used for migrating users from deprecated models to their replacements
- * Includes both bare model IDs and provider-prefixed IDs
- */
 export const buildModelMigrations = (): Record<string, string> => {
   const migrations: Record<string, string> = {};
   
@@ -426,9 +326,6 @@ export const buildModelMigrations = (): Record<string, string> => {
   return migrations;
 };
 
-/**
- * Build provider configurations for all 3 providers
- */
 export const buildProviderConfigs = () => {
   const gptModels = getModelsByFamily("gpt").map(toOpenClawModel);
   const claudeModels = getModelsByFamily("claude").map(toOpenClawModel);

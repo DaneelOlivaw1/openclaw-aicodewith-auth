@@ -1,126 +1,90 @@
 import { describe, it, expect } from "vitest";
-import { buildModelMigrations } from "../../lib/models/index.js";
+import { migrateConfig } from "../../src/migrations.js";
+import { PROVIDER_ID_CLAUDE, PROVIDER_ID_GPT } from "../../src/constants.js";
 
-describe("Config Migration", () => {
-  it("should build migration map from deprecated models", () => {
-    const migrations = buildModelMigrations();
-
-    expect(migrations["gpt-5.2-codex"]).toBe("gpt-5.3-codex");
-    expect(migrations["gpt-5.1-codex"]).toBe("gpt-5.3-codex");
-    expect(migrations["gpt-5.1-codex-max"]).toBe("gpt-5.3-codex");
-    expect(migrations["gpt-5.1-codex-mini"]).toBe("gpt-5.3-codex");
-    expect(migrations["gpt-5.1"]).toBe("gpt-5.2");
-    expect(migrations["claude-opus-4-5-20251101"]).toBe("claude-opus-4-6-20260205");
-    expect(migrations["claude-opus-4-6-20260205-third-party"]).toBe("claude-opus-4-6-20260205");
-    expect(migrations["claude-opus-4-5-20251101-third-party"]).toBe("claude-opus-4-6-20260205");
-    expect(migrations["claude-sonnet-4-5-20250929-third-party"]).toBe("claude-sonnet-4-5-20250929");
-    expect(migrations["claude-haiku-4-5-20251001-third-party"]).toBe("claude-haiku-4-5-20251001");
-  });
-
-  it("should include provider-prefixed migrations", () => {
-    const migrations = buildModelMigrations();
-
-    expect(migrations["aicodewith-gpt/gpt-5.2-codex"]).toBe("aicodewith-gpt/gpt-5.3-codex");
-    expect(migrations["aicodewith-claude/claude-opus-4-5-20251101"]).toBe("aicodewith-claude/claude-opus-4-6-20260205");
-    expect(migrations["aicodewith-claude/claude-sonnet-4-5-20250929-third-party"]).toBe("aicodewith-claude/claude-sonnet-4-5-20250929");
-  });
-
-  it("should migrate default_model in config", () => {
-    const migrations = buildModelMigrations();
+describe("migrateConfig", () => {
+  it("migrates agents.defaults.model.primary from deprecated to replacement", () => {
     const config = {
-      default_model: "gpt-5.2-codex",
+      agents: { defaults: { model: { primary: "aicodewith-claude/claude-opus-4-5-20251101" } } }
     };
-
-    if (config.default_model && migrations[config.default_model]) {
-      config.default_model = migrations[config.default_model];
-    }
-
-    expect(config.default_model).toBe("gpt-5.3-codex");
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(true);
+    expect((result.agents as any).defaults.model.primary).toBe("aicodewith-claude/claude-opus-4-6-20260205");
   });
 
-  it("should migrate model in agents.defaults", () => {
-    const migrations = buildModelMigrations();
+  it("migrates agents.defaults.model.fallbacks", () => {
+    const config = {
+      agents: { defaults: { model: { fallbacks: ["aicodewith-gpt/gpt-5.2-codex", "other-model"] } } }
+    };
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(true);
+    expect((result.agents as any).defaults.model.fallbacks).toEqual(["aicodewith-gpt/gpt-5.3-codex", "other-model"]);
+  });
+
+  it("migrates agents.defaults.models keys", () => {
+    const config = {
+      agents: { defaults: { models: { "aicodewith-gpt/gpt-5.2-codex": { alias: "codex" } } } }
+    };
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(true);
+    expect((result.agents as any).defaults.models["aicodewith-gpt/gpt-5.2-codex"]).toBeUndefined();
+    expect((result.agents as any).defaults.models["aicodewith-gpt/gpt-5.3-codex"]).toEqual({ alias: "codex" });
+  });
+
+  it("migrates agents.list[*].model.primary", () => {
     const config = {
       agents: {
-        defaults: {
-          model: "claude-opus-4-5-20251101",
-        },
-      },
-    };
-
-    if (config.agents?.defaults?.model && migrations[config.agents.defaults.model]) {
-      config.agents.defaults.model = migrations[config.agents.defaults.model];
-    }
-
-    expect(config.agents.defaults.model).toBe("claude-opus-4-6-20260205");
-  });
-
-  it("should migrate model in individual agent configs", () => {
-    const migrations = buildModelMigrations();
-    const config = {
-      agents: {
-        agents: {
-          "agent-1": {
-            model: "gpt-5.1",
-          },
-          "agent-2": {
-            model: "claude-sonnet-4-5-20250929-third-party",
-          },
-        },
-      },
-    };
-
-    if (config.agents?.agents && typeof config.agents.agents === "object") {
-      for (const [agentId, agentConfig] of Object.entries(config.agents.agents)) {
-        if (agentConfig && typeof agentConfig === "object") {
-          const agent = agentConfig as Record<string, any>;
-          if (agent.model && typeof agent.model === "string" && migrations[agent.model]) {
-            agent.model = migrations[agent.model];
-          }
-        }
+        list: [
+          { model: { primary: "gpt-5.1" } }
+        ]
       }
-    }
-
-    expect(config.agents.agents["agent-1"].model).toBe("gpt-5.2");
-    expect(config.agents.agents["agent-2"].model).toBe("claude-sonnet-4-5-20250929");
-  });
-
-  it("should not modify config if no deprecated models found", () => {
-    const migrations = buildModelMigrations();
-    const config = {
-      default_model: "gpt-5.3-codex",
-      agents: {
-        defaults: {
-          model: "claude-opus-4-6-20260205",
-        },
-      },
     };
-
-    const originalConfig = JSON.stringify(config);
-
-    if (config.default_model && migrations[config.default_model]) {
-      config.default_model = migrations[config.default_model];
-    }
-
-    if (config.agents?.defaults?.model && migrations[config.agents.defaults.model]) {
-      config.agents.defaults.model = migrations[config.agents.defaults.model];
-    }
-
-    expect(JSON.stringify(config)).toBe(originalConfig);
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(true);
+    expect((result.agents as any).list[0].model.primary).toBe("gpt-5.2");
   });
 
-  it("should remove stale provider configs from models.providers", () => {
+  it("updates models.providers with latest config while preserving apiKey", () => {
     const config = {
       models: {
         providers: {
-          "aicodewith-gpt": {
-            baseUrl: "https://api.aicodewith.com/chatgpt/v1",
-            models: [{ id: "gpt-5.2-codex", name: "GPT-5.2 Codex" }],
-          },
-          "aicodewith-claude": {
-            baseUrl: "https://api.aicodewith.com",
+          [PROVIDER_ID_CLAUDE]: {
+            baseUrl: "old-url",
+            api: "old-api",
             models: [{ id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" }],
-          },
+            apiKey: "sk-test-key",
+          }
+        }
+      }
+    };
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(true);
+    const provider = (result.models as any).providers[PROVIDER_ID_CLAUDE];
+    expect(provider.apiKey).toBe("sk-test-key");
+    expect(provider.models.length).toBeGreaterThan(1);
+    expect(provider.baseUrl).not.toBe("old-url");
+  });
+
+  it("returns changed=false when no deprecated models found", () => {
+    const config = {
+      agents: { defaults: { model: { primary: "aicodewith-claude/claude-opus-4-6-20260205" } } }
+    };
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(false);
+    expect(result).toBe(config);
+  });
+
+  it("handles missing agents/models sections gracefully", () => {
+    const config = { other: "stuff" };
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(false);
+    expect(result).toBe(config);
+  });
+
+  it("does not touch non-aicodewith providers", () => {
+     const config = {
+      models: {
+        providers: {
           "other-provider": {
             baseUrl: "https://other.api.com",
             models: [{ id: "other-model", name: "Other Model" }],
@@ -128,87 +92,8 @@ describe("Config Migration", () => {
         },
       },
     };
-
-    const ourProviders = ["aicodewith-gpt", "aicodewith-claude", "aicodewith-gemini"];
-    const providers = config.models.providers as Record<string, unknown>;
-    
-    for (const providerId of ourProviders) {
-      if (providers[providerId]) {
-        delete providers[providerId];
-      }
-    }
-
-    expect(config.models.providers["aicodewith-gpt"]).toBeUndefined();
-    expect(config.models.providers["aicodewith-claude"]).toBeUndefined();
-    expect(config.models.providers["other-provider"]).toBeDefined();
-  });
-
-  it("should update provider configs with latest models while preserving apiKey", () => {
-    const config = {
-      models: {
-        providers: {
-          "aicodewith-claude": {
-            baseUrl: "https://api.aicodewith.com",
-            apiKey: "sk-test-key",
-            api: "anthropic-messages",
-            models: [{ id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" }],
-          },
-        } as Record<string, Record<string, unknown>>,
-      },
-    };
-
-    const newModels = [
-      { id: "claude-opus-4-6-20260205", name: "Claude Opus 4.6" },
-      { id: "claude-sonnet-4-5-20250929", name: "Claude Sonnet 4.5" },
-      { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
-    ];
-
-    const existingProvider = config.models.providers["aicodewith-claude"];
-    const existingApiKey = existingProvider.apiKey;
-    
-    config.models.providers["aicodewith-claude"] = {
-      baseUrl: "https://api.aicodewith.com",
-      api: "anthropic-messages",
-      models: newModels,
-      ...(existingApiKey ? { apiKey: existingApiKey } : {}),
-    };
-
-    expect(config.models.providers["aicodewith-claude"].apiKey).toBe("sk-test-key");
-    expect(config.models.providers["aicodewith-claude"].models).toHaveLength(3);
-    const modelIds = (config.models.providers["aicodewith-claude"].models as Array<{id: string}>).map(m => m.id);
-    expect(modelIds).toContain("claude-opus-4-6-20260205");
-  });
-
-  it("should migrate model keys in agents.defaults.models", () => {
-    const migrations = buildModelMigrations();
-    const config = {
-      agents: {
-        defaults: {
-          models: {
-            "aicodewith-claude/claude-opus-4-5-20251101": { alias: "opus" },
-            "aicodewith-gpt/gpt-5.2-codex": { alias: "codex" },
-            "other-provider/other-model": { alias: "other" },
-          } as Record<string, unknown>,
-        },
-      },
-    };
-
-    const modelsConfig = config.agents.defaults.models;
-    const keysToMigrate: Array<[string, string]> = [];
-    for (const key of Object.keys(modelsConfig)) {
-      if (migrations[key]) {
-        keysToMigrate.push([key, migrations[key]]);
-      }
-    }
-    for (const [oldKey, newKey] of keysToMigrate) {
-      modelsConfig[newKey] = modelsConfig[oldKey];
-      delete modelsConfig[oldKey];
-    }
-
-    expect(modelsConfig["aicodewith-claude/claude-opus-4-5-20251101"]).toBeUndefined();
-    expect(modelsConfig["aicodewith-claude/claude-opus-4-6-20260205"]).toEqual({ alias: "opus" });
-    expect(modelsConfig["aicodewith-gpt/gpt-5.2-codex"]).toBeUndefined();
-    expect(modelsConfig["aicodewith-gpt/gpt-5.3-codex"]).toEqual({ alias: "codex" });
-    expect(modelsConfig["other-provider/other-model"]).toEqual({ alias: "other" });
+    const { config: result, changed } = migrateConfig(config);
+    expect(changed).toBe(false);
+    expect((result.models as any).providers["other-provider"]).toBeDefined();
   });
 });

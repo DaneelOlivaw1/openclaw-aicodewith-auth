@@ -1,6 +1,6 @@
 export const AICODEWITH_GPT_BASE_URL = "https://api.aicodewith.com/chatgpt/v1";
 export const AICODEWITH_CLAUDE_BASE_URL = "https://api.aicodewith.com";
-export const AICODEWITH_GEMINI_BASE_URL = "https://api.aicodewith.com/gemini_cli";
+export const AICODEWITH_GEMINI_BASE_URL = "https://api.aicodewith.com/gemini_cli/v1beta";
 
 export const PROVIDER_ID_GPT = "aicodewith-gpt";
 export const PROVIDER_ID_CLAUDE = "aicodewith-claude";

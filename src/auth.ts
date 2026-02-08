@@ -4,31 +4,15 @@ import {
   PROVIDER_ID_GEMINI,
   AUTH_PROFILE_ID,
 } from "./constants.js";
-import { buildProviderConfigs, getDefaultModel } from "../lib/models/index.js";
+import { buildProviderConfigs, getDefaultModel } from "./models/index.js";
+import { AuthContext, AuthMethod } from "./types.js";
 
-type SelectOption<T> = { value: T; label: string; hint?: string };
-
-type AuthContext = {
-  config: Record<string, unknown>;
-  prompter: {
-    text: (opts: {
-      message: string;
-      placeholder?: string;
-      validate?: (value: string) => string | undefined;
-    }) => Promise<string>;
-    select: <T>(opts: {
-      message: string;
-      options: SelectOption<T>[];
-    }) => Promise<T>;
-  };
-};
-
-function maskKey(key: string): string {
+export function maskKey(key: string): string {
   if (key.length <= 8) return "****";
   return key.slice(0, 6) + "****" + key.slice(-4);
 }
 
-function findExistingApiKey(config: Record<string, unknown>): string | undefined {
+export function findExistingApiKey(config: Record<string, unknown>): string | undefined {
   const models = config.models as Record<string, unknown> | undefined;
   const providers = models?.providers as Record<string, Record<string, unknown>> | undefined;
   if (!providers) return undefined;
@@ -47,7 +31,7 @@ function validateApiKey(value: string): string | undefined {
   return undefined;
 }
 
-function buildAuthResult(apiKey: string) {
+export function buildAuthResult(apiKey: string) {
   const providerConfigs = buildProviderConfigs();
   const defaultModel = getDefaultModel();
   const defaultModelRef = `${PROVIDER_ID_CLAUDE}/${defaultModel.id}`;
@@ -115,12 +99,12 @@ function buildAuthResult(apiKey: string) {
   };
 }
 
-export function createAicodewithAuthMethod() {
+export function createAicodewithAuthMethod(): AuthMethod {
   return {
     id: "api_key",
     label: "AICodewith API Key",
     hint: "Enter your AICodewith API key to access GPT, Claude, and Gemini models",
-    kind: "api_key" as const,
+    kind: "api_key",
     run: async (ctx: AuthContext) => {
       const existingKey = findExistingApiKey(ctx.config);
 
@@ -128,8 +112,8 @@ export function createAicodewithAuthMethod() {
         const choice = await ctx.prompter.select<"existing" | "new">({
           message: `Found existing API key (${maskKey(existingKey)}). What would you like to do?`,
           options: [
-            { value: "existing" as const, label: "Use existing key", hint: "Update models only, keep current key" },
-            { value: "new" as const, label: "Enter a new key" },
+            { value: "existing", label: "Use existing key", hint: "Update models only, keep current key" },
+            { value: "new", label: "Enter a new key" },
           ],
         });
 

@@ -159,7 +159,7 @@ else
         ]
       },
       "aicodewith-gemini": {
-        "baseUrl": "https://api.aicodewith.com/gemini/v1beta",
+        "baseUrl": "https://api.aicodewith.com/gemini_cli/v1beta",
         "api": "google-generative-ai",
         "apiKey": "${AICODEWITH_API_KEY}",
         "models": [
@@ -169,7 +169,7 @@ else
             "reasoning": false,
             "input": ["text", "image"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-            "contextWindow": 1000000,
+            "contextWindow": 1048576,
             "maxTokens": 65536
           }
         ]
@@ -391,7 +391,7 @@ NODE
   cat > "$HOME/.openclaw/openclaw.json" << CONFIG
 {
   "plugins": { "entries": { "openclaw-aicodewith-auth": { "enabled": true } } },
-  "auth": { "order": { "aicodewith-claude": ["aicodewith:default"] } },
+  "auth": { "order": { "aicodewith-claude": ["aicodewith:default"], "aicodewith-gemini": ["aicodewith:default"] } },
   "models": {
     "providers": {
       "aicodewith-claude": {
@@ -400,6 +400,14 @@ NODE
         "apiKey": "${AICODEWITH_API_KEY}",
         "models": [
           { "id": "claude-opus-4-6-20260205", "name": "Claude Opus 4.6", "reasoning": false, "input": ["text","image"], "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 200000, "maxTokens": 64000 }
+        ]
+      },
+      "aicodewith-gemini": {
+        "baseUrl": "https://api.aicodewith.com/gemini_cli/v1beta",
+        "api": "google-generative-ai",
+        "apiKey": "${AICODEWITH_API_KEY}",
+        "models": [
+          { "id": "gemini-3-pro", "name": "Gemini 3 Pro", "reasoning": false, "input": ["text","image"], "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 1048576, "maxTokens": 65536 }
         ]
       }
     }
@@ -410,10 +418,10 @@ CONFIG
 fi
 
 # ========================================
-# Test 5: Live API Call
+# Test 5: Live Claude API Call
 # ========================================
 echo ""
-echo "=== Test 5: Live API Call ==="
+echo "=== Test 5: Live Claude API Call ==="
 
 if [ -z "${AICODEWITH_API_KEY:-}" ]; then
   echo "⚠ AICODEWITH_API_KEY not set, skipping live API test"
@@ -427,6 +435,48 @@ else
     echo "Output: $CLAUDE_RESULT"
     FAILED=1
   fi
+fi
+
+# ========================================
+# Test 6: Live Gemini API Call
+# ========================================
+echo ""
+echo "=== Test 6: Live Gemini API Call ==="
+
+if [ -z "${AICODEWITH_API_KEY:-}" ]; then
+  echo "⚠ AICODEWITH_API_KEY not set, skipping Gemini live API test"
+else
+  echo "Switching default model to Gemini..."
+  node - << 'NODE'
+const fs = require("node:fs");
+const configPath = process.env.HOME + "/.openclaw/openclaw.json";
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+config.agents.defaults.model.primary = "aicodewith-gemini/gemini-3-pro";
+fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+console.log("✓ Default model set to aicodewith-gemini/gemini-3-pro");
+NODE
+
+  echo "Testing Gemini API call..."
+  GEMINI_RESULT=$(timeout 60 openclaw agent --local --agent main --message "Say hello in exactly one word" 2>&1 || true)
+  if echo "$GEMINI_RESULT" | grep -qi "hello\|hi\|hey"; then
+    echo "✓ Gemini API call successful"
+  elif echo "$GEMINI_RESULT" | grep -qi "Incomplete JSON\|error\|failed"; then
+    echo "✗ Gemini API call failed with error"
+    echo "Output: $GEMINI_RESULT"
+    FAILED=1
+  else
+    echo "⚠ Gemini API call returned unexpected output (may still be valid)"
+    echo "Output: $GEMINI_RESULT"
+  fi
+
+  # Restore Claude as default for any subsequent tests
+  node - << 'NODE'
+const fs = require("node:fs");
+const configPath = process.env.HOME + "/.openclaw/openclaw.json";
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+config.agents.defaults.model.primary = "aicodewith-claude/claude-opus-4-6-20260205";
+fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+NODE
 fi
 
 # Cleanup

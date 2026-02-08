@@ -128,4 +128,49 @@ if (allPassed) {
 NODE
 
 echo ""
+echo "=== Step 5: Live Gemini API Test ==="
+if [ -z "${AICODEWITH_API_KEY:-}" ]; then
+  echo "⚠ AICODEWITH_API_KEY not set, skipping Gemini live API test"
+else
+  node - << 'NODE'
+const fs = require("node:fs");
+const configPath = process.env.HOME + "/.openclaw/openclaw.json";
+const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+
+if (!config.models) config.models = {};
+if (!config.models.providers) config.models.providers = {};
+
+config.models.providers["aicodewith-gemini"] = {
+  baseUrl: "https://api.aicodewith.com/gemini_cli/v1beta",
+  api: "google-generative-ai",
+  apiKey: process.env.AICODEWITH_API_KEY,
+  models: [
+    { id: "gemini-3-pro", name: "Gemini 3 Pro", reasoning: false, input: ["text","image"], cost: {input:0,output:0,cacheRead:0,cacheWrite:0}, contextWindow: 1048576, maxTokens: 65536 }
+  ]
+};
+
+if (!config.auth) config.auth = {};
+if (!config.auth.order) config.auth.order = {};
+config.auth.order["aicodewith-gemini"] = ["aicodewith:default"];
+
+config.agents.defaults.model.primary = "aicodewith-gemini/gemini-3-pro";
+fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+console.log("✓ Gemini provider configured, set as default model");
+NODE
+
+  echo "Testing Gemini API call..."
+  GEMINI_RESULT=$(timeout 60 npx openclaw@latest agent --local --agent main --message "Say hello in exactly one word" 2>&1 || true)
+  if echo "$GEMINI_RESULT" | grep -qi "hello\|hi\|hey"; then
+    echo "✓ Gemini API call successful"
+  elif echo "$GEMINI_RESULT" | grep -qi "Incomplete JSON\|error\|failed"; then
+    echo "✗ Gemini API call failed with error"
+    echo "Output: $GEMINI_RESULT"
+    exit 1
+  else
+    echo "⚠ Gemini API call returned unexpected output (may still be valid)"
+    echo "Output: $GEMINI_RESULT"
+  fi
+fi
+
+echo ""
 echo "=== E2E Test Complete ==="
