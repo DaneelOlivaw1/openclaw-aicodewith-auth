@@ -86,6 +86,7 @@ describe("Model Registry", () => {
       expect(getModelById("gpt-5.3-codex")).toBeDefined()
       expect(getModelById("gpt-5.2")).toBeDefined()
       expect(getModelById("claude-opus-4-6-20260205")).toBeDefined()
+      expect(getModelById("claude-sonnet-4-6")).toBeDefined()
       expect(getModelById("claude-sonnet-4-5-20250929")).toBeDefined()
       expect(getModelById("claude-haiku-4-5-20251001")).toBeDefined()
       expect(getModelById("gemini-3-pro")).toBeDefined()
@@ -163,6 +164,7 @@ describe("Model Registry", () => {
       const claudeConfig = configs[PROVIDER_IDS.CLAUDE]
       const modelIds = claudeConfig.models.map(m => m.id)
       expect(modelIds).toContain("claude-opus-4-6-20260205")
+      expect(modelIds).toContain("claude-sonnet-4-6")
       expect(modelIds).toContain("claude-sonnet-4-5-20250929")
       expect(modelIds).toContain("claude-haiku-4-5-20251001")
     })
