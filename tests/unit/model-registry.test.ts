@@ -165,7 +165,6 @@ describe("Model Registry", () => {
       const modelIds = claudeConfig.models.map(m => m.id)
       expect(modelIds).toContain("claude-opus-4-6-20260205")
       expect(modelIds).toContain("claude-sonnet-4-6")
-      expect(modelIds).toContain("claude-sonnet-4-5-20250929")
       expect(modelIds).toContain("claude-haiku-4-5-20251001")
     })
 
@@ -283,11 +282,11 @@ describe("Model Registry", () => {
 
     it("works for all model families", () => {
       const gptModel = toOpenClawModel(getModelById("gpt-5.2")!)
-      const claudeModel = toOpenClawModel(getModelById("claude-sonnet-4-5-20250929")!)
+      const claudeModel = toOpenClawModel(getModelById("claude-sonnet-4-6")!)
       const geminiModel = toOpenClawModel(getModelById("gemini-3-pro")!)
 
       expect(gptModel.id).toBe("gpt-5.2")
-      expect(claudeModel.id).toBe("claude-sonnet-4-5-20250929")
+      expect(claudeModel.id).toBe("claude-sonnet-4-6")
       expect(geminiModel.id).toBe("gemini-3-pro")
     })
   })

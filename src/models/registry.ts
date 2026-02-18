@@ -150,9 +150,9 @@ export const MODELS: ModelDefinition[] = [
   },
   {
     id: "claude-sonnet-4-5-20250929",
-    name: "Claude Sonnet 4.5",
+    name: "Claude Sonnet 4.5 (deprecated)",
     family: "claude",
-    displayName: "Claude Sonnet 4.5",
+    displayName: "Claude Sonnet 4.5 (deprecated)",
     version: "4.5",
     reasoning: false,
     input: ["text", "image"] as const,
@@ -161,6 +161,8 @@ export const MODELS: ModelDefinition[] = [
     maxTokens: 64000,
     limit: { context: 200000, output: 64000 },
     modalities: { input: ["text", "image"], output: ["text"] },
+    deprecated: true,
+    replacedBy: "claude-sonnet-4-6",
   },
   {
     id: "claude-haiku-4-5-20251001",
@@ -238,7 +240,7 @@ export const MODELS: ModelDefinition[] = [
     limit: { context: 200000, output: 64000 },
     modalities: { input: ["text", "image"], output: ["text"] },
     deprecated: true,
-    replacedBy: "claude-sonnet-4-5-20250929",
+    replacedBy: "claude-sonnet-4-6",
   },
   {
     id: "claude-haiku-4-5-20251001-third-party",

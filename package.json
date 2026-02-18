@@ -1,6 +1,6 @@
 {
   "name": "openclaw-aicodewith-auth",
-  "version": "0.4.0",
+  "version": "0.4.2",
   "type": "module",
   "description": "AICodewith provider plugin for OpenClaw - Access GPT, Claude, and Gemini models via AICodewith API",
   "author": "daneel",

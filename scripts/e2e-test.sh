@@ -111,10 +111,10 @@ if (fallbacks.includes("aicodewith-gpt/gpt-5.3-codex")) {
 }
 
 const testAgentModel = config.agents?.list?.find(a => a.id === "test-agent")?.model;
-if (testAgentModel?.primary === "aicodewith-claude/claude-sonnet-4-5-20250929") {
+if (testAgentModel?.primary === "aicodewith-claude/claude-sonnet-4-6") {
   console.log("✓ agents.list[test-agent].model.primary migrated correctly");
 } else {
-  console.log(`✗ agents.list[test-agent].model.primary: expected aicodewith-claude/claude-sonnet-4-5-20250929, got ${testAgentModel?.primary}`);
+  console.log(`✗ agents.list[test-agent].model.primary: expected aicodewith-claude/claude-sonnet-4-6, got ${testAgentModel?.primary}`);
   allPassed = false;
 }
 
